@@ -1,1 +1,0 @@
-rootProject.name = "flutter_config_pdf_ad_plugins"

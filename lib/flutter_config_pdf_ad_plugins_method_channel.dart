@@ -4,10 +4,16 @@ import 'package:flutter/services.dart';
 import 'flutter_config_pdf_ad_plugins_platform_interface.dart';
 
 /// An implementation of [FlutterConfigPdfAdPluginsPlatform] that uses method channels.
-class MethodChannelFlutterConfigPdfAdPlugins extends FlutterConfigPdfAdPluginsPlatform {
+class MethodChannelFlutterConfigPdfAdPlugins
+    extends FlutterConfigPdfAdPluginsPlatform {
   /// The method channel used to interact with the native platform.
   @visibleForTesting
   final methodChannel = const MethodChannel('flutter_config_pdf_ad_plugins');
+
+  @visibleForTesting
+  final nativeAdHeadlineEventChannel = const EventChannel(
+    'flutter_config_pdf_ad_plugins/native_ad_headline',
+  );
 
   @override
   Future<String?> getPlatformVersion() async {
@@ -15,5 +21,39 @@ class MethodChannelFlutterConfigPdfAdPlugins extends FlutterConfigPdfAdPluginsPl
       'getPlatformVersion',
     );
     return version;
+  }
+
+  @override
+  Future<String?> getAndroidId() async {
+    return methodChannel.invokeMethod<String>('getAndroidId');
+  }
+
+  @override
+  Future<void> configureSmallNativeAdLayout(String? layoutName) async {
+    await methodChannel.invokeMethod<void>('configureSmallNativeAdLayout', {
+      'layoutName': layoutName,
+    });
+  }
+
+  @override
+  Stream<Map<String, dynamic>> get nativeAdHeadlineStream =>
+      nativeAdHeadlineEventChannel
+          .receiveBroadcastStream()
+          .where((dynamic event) => event is Map)
+          .map((dynamic event) => Map<String, dynamic>.from(event as Map));
+
+  @override
+  Future<bool> closeFullScreenAd() async {
+    return await methodChannel.invokeMethod<bool>('closeFullScreenAd') ?? false;
+  }
+
+  @override
+  Future<void> updateCloseableFullScreenAdActivityNames(
+    Iterable<String> activityNames,
+  ) async {
+    await methodChannel.invokeMethod<void>(
+      'updateCloseableFullScreenAdActivityNames',
+      {'activityNames': activityNames.toList(growable: false)},
+    );
   }
 }

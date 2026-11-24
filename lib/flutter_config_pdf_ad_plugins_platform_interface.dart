@@ -8,7 +8,8 @@ abstract class FlutterConfigPdfAdPluginsPlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static FlutterConfigPdfAdPluginsPlatform _instance = MethodChannelFlutterConfigPdfAdPlugins();
+  static FlutterConfigPdfAdPluginsPlatform _instance =
+      MethodChannelFlutterConfigPdfAdPlugins();
 
   /// The default instance of [FlutterConfigPdfAdPluginsPlatform] to use.
   ///
@@ -25,5 +26,33 @@ abstract class FlutterConfigPdfAdPluginsPlatform extends PlatformInterface {
 
   Future<String?> getPlatformVersion() {
     throw UnimplementedError('platformVersion() has not been implemented.');
+  }
+
+  Future<String?> getAndroidId() {
+    throw UnimplementedError('getAndroidId() has not been implemented.');
+  }
+
+  Future<void> configureSmallNativeAdLayout(String? layoutName) {
+    throw UnimplementedError(
+      'configureSmallNativeAdLayout() has not been implemented.',
+    );
+  }
+
+  Stream<Map<String, dynamic>> get nativeAdHeadlineStream {
+    throw UnimplementedError(
+      'nativeAdHeadlineStream has not been implemented.',
+    );
+  }
+
+  Future<bool> closeFullScreenAd() {
+    throw UnimplementedError('closeFullScreenAd() has not been implemented.');
+  }
+
+  Future<void> updateCloseableFullScreenAdActivityNames(
+    Iterable<String> activityNames,
+  ) {
+    throw UnimplementedError(
+      'updateCloseableFullScreenAdActivityNames() has not been implemented.',
+    );
   }
 }

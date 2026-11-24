@@ -12,6 +12,10 @@ public class FlutterConfigPdfAdPluginsPlugin: NSObject, FlutterPlugin {
     switch call.method {
     case "getPlatformVersion":
       result("iOS " + UIDevice.current.systemVersion)
+    case "getAndroidId":
+      result(nil)
+    case "closeFullScreenAd":
+      result(false)
     default:
       result(FlutterMethodNotImplemented)
     }
