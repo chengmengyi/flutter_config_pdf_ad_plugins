@@ -1,4 +1,4 @@
-// ignore_for_file: implementation_imports
+// ignore_for_file: implementation_imports, prefer_initializing_formals
 
 import 'dart:async';
 
@@ -9,6 +9,8 @@ import 'package:google_mobile_ads/src/ad_instance_manager.dart'
     show instanceManager;
 
 import '../bean/ad_info_bean.dart';
+import '../enum/ad_placement.dart';
+import '../enum/ad_pos_id.dart';
 import '../enum/ad_type.dart';
 import 'loaded_ad_cache_entry.dart';
 
@@ -52,22 +54,25 @@ class _LoaderLeasedAdWidgetState extends State<_LoaderLeasedAdWidget> {
   }
 }
 
-class FlutterPdfAdLoader<K> {
+class FlutterPdfAdLoader {
   FlutterPdfAdLoader({
-    Map<K, List<AdInfoBean>> initialConfigs = const {},
     AdRequest? defaultAdRequest,
     AdSize? bannerSize,
-    AdSize? Function(K placement)? bannerSizeBuilder,
-    AdRequest? Function(K placement, AdRequest defaultRequest)?
+    AdSize? Function(AdPlacement placement)? bannerSizeBuilder,
+    AdRequest? Function(AdPlacement placement, AdRequest defaultRequest)?
     adRequestBuilder,
-    String? Function(K placement)? nativeAdFactoryIdBuilder,
-    NativeAdOptions? Function(K placement)? nativeAdOptionsBuilder,
+    String? Function(AdPlacement placement, AdInfoBean info)?
+    nativeAdFactoryIdBuilder,
+    NativeAdOptions? Function(AdPlacement placement, AdInfoBean info)?
+    nativeAdOptionsBuilder,
     NativeTemplateStyle? nativeTemplateStyle,
-    NativeTemplateStyle? Function(K placement)? nativeTemplateStyleBuilder,
-    void Function(K placement, LoadedAdCacheEntry entry)? onPlacementLoaded,
-    void Function(K placement, AdInfoBean info)? onAdRequestStart,
+    NativeTemplateStyle? Function(AdPlacement placement)?
+    nativeTemplateStyleBuilder,
+    void Function(AdPlacement placement, LoadedAdCacheEntry entry)?
+    onPlacementLoaded,
+    void Function(AdPlacement placement, AdInfoBean info)? onAdRequestStart,
     void Function(
-      K placement,
+      AdPlacement placement,
       AdInfoBean info,
       String adNetwork,
       String adSourceName,
@@ -75,7 +80,7 @@ class FlutterPdfAdLoader<K> {
     )?
     onAdRequestSuccess,
     void Function(
-      K placement,
+      AdPlacement placement,
       AdInfoBean info,
       String failReason,
       String adNetwork,
@@ -84,50 +89,49 @@ class FlutterPdfAdLoader<K> {
     )?
     onAdRequestFailure,
     void Function(
-      K placement,
+      AdPlacement placement,
       AdInfoBean info,
-      Object adPosId,
+      AdPosId adPosId,
       String adNetwork,
       String adSourceName,
     )?
     onAdShowStart,
     void Function(
-      K placement,
+      AdPlacement placement,
       AdInfoBean info,
-      Object adPosId,
+      AdPosId adPosId,
       String adNetwork,
       String adSourceName,
     )?
     onAdShowed,
     void Function(
-      K placement,
+      AdPlacement placement,
       AdInfoBean info,
-      Object adPosId,
+      AdPosId adPosId,
       String adNetwork,
       String adSourceName,
     )?
     onAdClicked,
     void Function(
-      K placement,
+      AdPlacement placement,
       AdInfoBean info,
-      Object adPosId,
+      AdPosId adPosId,
       String adNetwork,
       String adSourceName,
     )?
     onAdClosed,
-    String Function(K placement)? placementLabelBuilder,
     void Function(
-      K placement,
+      AdPlacement placement,
       AdInfoBean info,
-      Object adPosId,
+      AdPosId adPosId,
       Ad ad,
       double valueMicros,
       PrecisionType precision,
       String currencyCode,
     )?
     onPaidEvent,
-    Future<bool> Function(K placement)? canLoadAppOpenAd,
-    void Function(K placement, AdInfoBean info)? onAdImpression,
+    Future<bool> Function()? canRequestAd,
+    void Function(AdPlacement placement, AdInfoBean info)? onAdImpression,
   }) : _defaultAdRequest = defaultAdRequest ?? const AdRequest(),
        _bannerSize = bannerSize ?? AdSize.banner,
        _bannerSizeBuilder = bannerSizeBuilder,
@@ -146,27 +150,28 @@ class FlutterPdfAdLoader<K> {
        _onAdShowed = onAdShowed,
        _onAdClicked = onAdClicked,
        _onAdClosed = onAdClosed,
-       _placementLabelBuilder = placementLabelBuilder,
        _onPaidEvent = onPaidEvent,
-       _canLoadAppOpenAd = canLoadAppOpenAd,
-       _onAdImpression = onAdImpression {
-    updateConfigs(initialConfigs);
-  }
+       _canRequestAd = canRequestAd,
+       _onAdImpression = onAdImpression;
 
   final AdRequest _defaultAdRequest;
   final AdSize _bannerSize;
-  final AdSize? Function(K placement)? _bannerSizeBuilder;
-  final AdRequest? Function(K placement, AdRequest defaultRequest)?
+  final AdSize? Function(AdPlacement placement)? _bannerSizeBuilder;
+  final AdRequest? Function(AdPlacement placement, AdRequest defaultRequest)?
   _adRequestBuilder;
-  final String? Function(K placement)? _nativeAdFactoryIdBuilder;
-  final NativeAdOptions? Function(K placement)? _nativeAdOptionsBuilder;
+  final String? Function(AdPlacement placement, AdInfoBean info)?
+  _nativeAdFactoryIdBuilder;
+  final NativeAdOptions? Function(AdPlacement placement, AdInfoBean info)?
+  _nativeAdOptionsBuilder;
   final NativeTemplateStyle _nativeTemplateStyle;
-  final NativeTemplateStyle? Function(K placement)? _nativeTemplateStyleBuilder;
-  final void Function(K placement, LoadedAdCacheEntry entry)?
+  final NativeTemplateStyle? Function(AdPlacement placement)?
+  _nativeTemplateStyleBuilder;
+  final void Function(AdPlacement placement, LoadedAdCacheEntry entry)?
   _onPlacementLoaded;
-  final void Function(K placement, AdInfoBean info)? _onAdRequestStart;
+  final void Function(AdPlacement placement, AdInfoBean info)?
+  _onAdRequestStart;
   final void Function(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
     String adNetwork,
     String adSourceName,
@@ -174,7 +179,7 @@ class FlutterPdfAdLoader<K> {
   )?
   _onAdRequestSuccess;
   final void Function(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
     String failReason,
     String adNetwork,
@@ -183,71 +188,68 @@ class FlutterPdfAdLoader<K> {
   )?
   _onAdRequestFailure;
   final void Function(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   )?
   _onAdShowStart;
   final void Function(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   )?
   _onAdShowed;
   final void Function(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   )?
   _onAdClicked;
   final void Function(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   )?
   _onAdClosed;
-  final String Function(K placement)? _placementLabelBuilder;
   final void Function(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     Ad ad,
     double valueMicros,
     PrecisionType precision,
     String currencyCode,
   )?
   _onPaidEvent;
-  final Future<bool> Function(K placement)? _canLoadAppOpenAd;
-  final void Function(K placement, AdInfoBean info)? _onAdImpression;
+  final Future<bool> Function()? _canRequestAd;
+  final void Function(AdPlacement placement, AdInfoBean info)? _onAdImpression;
 
-  final Map<K, List<AdInfoBean>> _configs = {};
-  final Map<K, List<LoadedAdCacheEntry>> _cacheMap = {};
-  final Map<K, Future<LoadedAdCacheEntry?>> _loadingTasks = {};
-  final Map<K, int> _activeRequestCounts = {};
-  final Set<K> _skipReloadAfterClosePlacements = <K>{};
-  final Set<K> _singleFillPlacements = <K>{};
-  final Set<K> _programmaticClosingPlacements = <K>{};
-  final Set<K> _reloadWhenActiveRequestsFinish = <K>{};
-  final Expando<Object> _adPosIds = Expando<Object>('flutter_pdf_ad_pos_id');
-  Duration? _requestFallbackDelay;
+  final Map<AdPlacement, List<AdInfoBean>> _configs = {};
+  final Map<AdPlacement, List<LoadedAdCacheEntry>> _cacheMap = {};
+  final Map<AdPlacement, Future<LoadedAdCacheEntry?>> _loadingTasks = {};
+  final Map<AdPlacement, int> _activeRequestCounts = {};
+  final Set<AdPlacement> _skipReloadAfterClosePlacements = <AdPlacement>{};
+  final Set<AdPlacement> _programmaticClosingPlacements = <AdPlacement>{};
+  final Set<AdPlacement> _reloadWhenActiveRequestsFinish = <AdPlacement>{};
+  final Expando<AdPosId> _adPosIds = Expando<AdPosId>('flutter_pdf_ad_pos_id');
 
-  Map<K, List<AdInfoBean>> get configs => Map.unmodifiable(_configs);
+  Map<AdPlacement, List<AdInfoBean>> get configs => Map.unmodifiable(_configs);
 
-  Map<K, LoadedAdCacheEntry> get cacheMap {
-    return Map<K, LoadedAdCacheEntry>.unmodifiable(
+  Map<AdPlacement, LoadedAdCacheEntry> get cacheMap {
+    return Map<AdPlacement, LoadedAdCacheEntry>.unmodifiable(
       _cacheMap.map((key, value) => MapEntry(key, value.first)),
     );
   }
 
-  void updateConfigs(Map<K, List<AdInfoBean>> configs) {
+  void replaceConfigsFromRemote(Map<AdPlacement, List<AdInfoBean>> configs) {
     _configs
       ..clear()
       ..addAll(
@@ -257,40 +259,26 @@ class FlutterPdfAdLoader<K> {
       );
   }
 
-  void updatePlacementConfig(K placement, List<AdInfoBean> configs) {
-    _configs[placement] = List<AdInfoBean>.unmodifiable(configs);
-  }
-
-  void updateSkipReloadAfterClosePlacements(Iterable<K> placements) {
+  void updateSkipReloadAfterClosePlacements(Iterable<AdPlacement> placements) {
     _skipReloadAfterClosePlacements
       ..clear()
       ..addAll(placements);
   }
 
-  void updateSingleFillPlacements(Iterable<K> placements) {
-    _singleFillPlacements
-      ..clear()
-      ..addAll(placements);
-  }
-
-  void updateRequestFallbackDelay(Duration? delay) {
-    _requestFallbackDelay = delay;
-  }
-
-  void markProgrammaticClose(Iterable<K> placements) {
+  void markProgrammaticClose(Iterable<AdPlacement> placements) {
     _programmaticClosingPlacements.addAll(placements);
   }
 
-  void unmarkProgrammaticClose(Iterable<K> placements) {
+  void unmarkProgrammaticClose(Iterable<AdPlacement> placements) {
     _programmaticClosingPlacements.removeAll(placements);
   }
 
-  bool _consumeProgrammaticCloseMark(K placement) {
+  bool _consumeProgrammaticCloseMark(AdPlacement placement) {
     return _programmaticClosingPlacements.remove(placement);
   }
 
   Future<LoadedAdCacheEntry?> loadPlacement(
-    K placement, {
+    AdPlacement placement, {
     List<AdInfoBean>? configs,
     bool force = false,
   }) async {
@@ -312,33 +300,36 @@ class FlutterPdfAdLoader<K> {
       return cachedEntry.first;
     }
 
+    if ((_activeRequestCounts[placement] ?? 0) > 0) {
+      if (!kReleaseMode) {
+        debugPrint(
+          '[FlutterPdfAdLoader] ad-load-blocked '
+          'placement=${_placementLabel(placement)} '
+          'reason=active-request',
+        );
+      }
+      return cachedEntry == null || cachedEntry.isEmpty
+          ? null
+          : cachedEntry.first;
+    }
+
     final latestInFlight = _loadingTasks[placement];
     if (latestInFlight != null) {
       return latestInFlight;
     }
 
-    var placementConfigs =
+    final placementConfigs =
         configs ?? _configs[placement] ?? const <AdInfoBean>[];
-    final hasAppOpenConfig = placementConfigs.any(
-      (config) => config.parsedAdType == AdType.appOpen,
-    );
-    final canLoadAppOpenAd = _canLoadAppOpenAd;
-    if (hasAppOpenConfig &&
-        canLoadAppOpenAd != null &&
-        !await canLoadAppOpenAd(placement)) {
-      placementConfigs = placementConfigs
-          .where((config) => config.parsedAdType != AdType.appOpen)
-          .toList(growable: false);
+    final canRequestAd = _canRequestAd;
+    if (canRequestAd != null && !await canRequestAd()) {
       if (!kReleaseMode) {
         debugPrint(
-          '[FlutterPdfAdLoader] app-open-load-blocked '
+          '[FlutterPdfAdLoader] ad-load-blocked '
           'placement=${_placementLabel(placement)} '
           'reason=daily-show-or-click-limit',
         );
       }
-      if (placementConfigs.isEmpty) {
-        return null;
-      }
+      return null;
     }
 
     // The asynchronous limit check may have allowed another caller to start
@@ -371,14 +362,17 @@ class FlutterPdfAdLoader<K> {
     }
   }
 
-  Future<void> preloadAll({Iterable<K>? placements, bool force = false}) async {
+  Future<void> preloadAll({
+    Iterable<AdPlacement>? placements,
+    bool force = false,
+  }) async {
     final targets = placements ?? _configs.keys;
     await Future.wait(
       targets.map((placement) => loadPlacement(placement, force: force)),
     );
   }
 
-  Future<LoadedAdCacheEntry?> getCachedEntry(K placement) async {
+  Future<LoadedAdCacheEntry?> getCachedEntry(AdPlacement placement) async {
     await _evictExpiredCacheIfNeeded(placement, reloadOnExpire: false);
     final entries = _cacheMap[placement];
     if (entries == null || entries.isEmpty) {
@@ -387,7 +381,9 @@ class FlutterPdfAdLoader<K> {
     return entries.first;
   }
 
-  Future<LoadedAdCacheEntry?> getUnleasedCachedEntry(K placement) async {
+  Future<LoadedAdCacheEntry?> getUnleasedCachedEntry(
+    AdPlacement placement,
+  ) async {
     await _evictExpiredCacheIfNeeded(placement, reloadOnExpire: false);
     final entries = _cacheMap[placement];
     if (entries == null || entries.isEmpty) {
@@ -402,8 +398,8 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<LoadedAdCacheEntry?> reserveCachedWidgetEntry(
-    K placement, {
-    required Object adPosId,
+    AdPlacement placement, {
+    required AdPosId adPosId,
   }) async {
     await _evictExpiredCacheIfNeeded(placement, reloadOnExpire: false);
     final entries = _cacheMap[placement];
@@ -424,17 +420,17 @@ class FlutterPdfAdLoader<K> {
     return null;
   }
 
-  Future<Ad?> getCachedAd(K placement) async {
+  Future<Ad?> getCachedAd(AdPlacement placement) async {
     return (await getCachedEntry(placement))?.ad;
   }
 
-  void bindCachedEntryAdPosId(LoadedAdCacheEntry entry, Object adPosId) {
+  void bindCachedEntryAdPosId(LoadedAdCacheEntry entry, AdPosId adPosId) {
     _bindEntryAdPosId(entry, adPosId);
   }
 
   Future<LoadedAdCacheEntry?> takeCachedEntry(
-    K placement, {
-    required Object adPosId,
+    AdPlacement placement, {
+    required AdPosId adPosId,
     bool reloadAfterTake = false,
     LoadedAdCacheEntry? expectedEntry,
   }) async {
@@ -463,8 +459,8 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<Widget?> buildCachedAdWidget(
-    K placement, {
-    required Object adPosId,
+    AdPlacement placement, {
+    required AdPosId adPosId,
   }) async {
     final entry = await reserveCachedWidgetEntry(placement, adPosId: adPosId);
     if (entry == null) {
@@ -479,8 +475,8 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<bool?> showCachedAd(
-    K placement, {
-    required Object adPosId,
+    AdPlacement placement, {
+    required AdPosId adPosId,
     OnUserEarnedRewardCallback? onUserEarnedReward,
   }) async {
     final result = await showCachedAdWithResult(
@@ -492,8 +488,8 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<ShowAdResult> showCachedAdWithResult(
-    K placement, {
-    required Object adPosId,
+    AdPlacement placement, {
+    required AdPosId adPosId,
     OnUserEarnedRewardCallback? onUserEarnedReward,
   }) async {
     await _evictExpiredCacheIfNeeded(placement, reloadOnExpire: true);
@@ -672,8 +668,8 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<bool?> loadAndShow(
-    K placement, {
-    required Object adPosId,
+    AdPlacement placement, {
+    required AdPosId adPosId,
     List<AdInfoBean>? configs,
     bool forceReload = false,
     OnUserEarnedRewardCallback? onUserEarnedReward,
@@ -706,7 +702,7 @@ class FlutterPdfAdLoader<K> {
     );
   }
 
-  Future<void> clearPlacementCache(K placement) async {
+  Future<void> clearPlacementCache(AdPlacement placement) async {
     final entries = _cacheMap.remove(placement);
     if (entries != null) {
       for (final entry in entries) {
@@ -716,14 +712,14 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<void> consumeShownEntryAfterClose(
-    K placement,
+    AdPlacement placement,
     LoadedAdCacheEntry entry,
   ) {
     return _consumeShownEntryAfterShow(placement, entry, trigger: 'close');
   }
 
   Future<void> _preloadReplacementAfterShow(
-    K placement,
+    AdPlacement placement,
     LoadedAdCacheEntry shownEntry,
   ) async {
     if (_skipReloadAfterClosePlacements.contains(placement)) {
@@ -737,9 +733,7 @@ class FlutterPdfAdLoader<K> {
     }
 
     final configs = _configs[placement] ?? const <AdInfoBean>[];
-    final hasLoadableConfig = configs.any(
-      (config) => config.adId != null && config.parsedAdType != null,
-    );
+    final hasLoadableConfig = configs.isNotEmpty;
     if (!hasLoadableConfig) {
       _log(
         'skip-preload-after-show',
@@ -767,17 +761,15 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<LoadedAdCacheEntry?> _loadPlacementInternal(
-    K placement,
+    AdPlacement placement,
     List<AdInfoBean> configs, {
     required bool clearCacheOnNoFill,
   }) async {
-    final sortedConfigs =
-        configs
-            .where(
-              (config) => config.adId != null && config.parsedAdType != null,
-            )
-            .toList(growable: false)
-          ..sort((left, right) => (right.sort ?? 0).compareTo(left.sort ?? 0));
+    final sortedConfigs = configs.indexed.toList(growable: false)
+      ..sort((left, right) {
+        final bySort = left.$2.sort.compareTo(right.$2.sort);
+        return bySort != 0 ? bySort : left.$1.compareTo(right.$1);
+      });
 
     if (sortedConfigs.isEmpty) {
       if (clearCacheOnNoFill) {
@@ -813,26 +805,26 @@ class FlutterPdfAdLoader<K> {
       if (index >= sortedConfigs.length) {
         return;
       }
+      if (hasSuccessfulFill) {
+        return;
+      }
       if (!startedIndexes.add(index)) {
         return;
       }
-
-      final config = sortedConfigs[index];
+      final config = sortedConfigs[index].$2;
       _logLoadStart(placement, config);
       _activeRequestCounts[placement] =
           (_activeRequestCounts[placement] ?? 0) + 1;
 
-      final requestFallbackDelay = _requestFallbackDelay;
-      if (requestFallbackDelay != null &&
-          !_singleFillPlacements.contains(placement) &&
-          index + 1 < sortedConfigs.length) {
-        final timer = Timer(requestFallbackDelay, () {
+      Timer? fallbackTimer;
+      if (index + 1 < sortedConfigs.length) {
+        fallbackTimer = Timer(Duration(seconds: config.intervalSecs), () {
           if (completedIndexes.contains(index)) {
             return;
           }
           unawaited(startLoadAt(index + 1));
         });
-        timers.add(timer);
+        timers.add(fallbackTimer);
       }
 
       final loadStopwatch = Stopwatch()..start();
@@ -841,6 +833,7 @@ class FlutterPdfAdLoader<K> {
       final loadDurationSeconds =
           loadStopwatch.elapsedMicroseconds / Duration.microsecondsPerSecond;
       completedIndexes.add(index);
+      fallbackTimer?.cancel();
       final nextActiveCount = (_activeRequestCounts[placement] ?? 1) - 1;
       final activeRequestsBecameIdle = nextActiveCount <= 0;
       if (nextActiveCount <= 0) {
@@ -874,21 +867,10 @@ class FlutterPdfAdLoader<K> {
         cachedAt: DateTime.now(),
         requestOrder: index,
       );
-      if (_singleFillPlacements.contains(placement) && hasSuccessfulFill) {
-        _log(
-          'drop-extra-success',
-          placement,
-          info: config,
-          extra: 'reason=single-fill',
-        );
-        await entry.dispose();
-        await tryCompleteNoFill();
-        if (activeRequestsBecameIdle) {
-          unawaited(_maybeReloadAfterActiveRequestsFinish(placement, config));
-        }
-        return;
-      }
       hasSuccessfulFill = true;
+      for (final timer in timers) {
+        timer.cancel();
+      }
       await _insertCacheEntry(placement, entry);
       _logLoadSuccess(
         placement,
@@ -915,7 +897,7 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<void> _insertCacheEntry(
-    K placement,
+    AdPlacement placement,
     LoadedAdCacheEntry nextEntry,
   ) async {
     final entries = _cacheMap.putIfAbsent(
@@ -933,7 +915,7 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<bool> _evictExpiredCacheIfNeeded(
-    K placement, {
+    AdPlacement placement, {
     required bool reloadOnExpire,
   }) async {
     final entries = _cacheMap[placement];
@@ -962,10 +944,10 @@ class FlutterPdfAdLoader<K> {
     return true;
   }
 
-  Future<_AdLoadResult> _loadAd(K placement, AdInfoBean info) async {
+  Future<_AdLoadResult> _loadAd(AdPlacement placement, AdInfoBean info) async {
     final adType = info.parsedAdType;
     final adId = info.adId;
-    if (adType == null || adId == null || adId.isEmpty) {
+    if (adId.isEmpty) {
       return const _AdLoadResult.failure('invalid-ad-config');
     }
 
@@ -975,6 +957,7 @@ class FlutterPdfAdLoader<K> {
       case AdType.interstitial:
         return _loadInterstitialAd(placement, info, adId);
       case AdType.native:
+      case AdType.nativeFullscreen:
         return _loadNativeAd(placement, info, adId);
       case AdType.rewarded:
         return _loadRewardedAd(placement, info, adId);
@@ -984,7 +967,7 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<_AdLoadResult> _loadAppOpenAd(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
     String adId,
   ) async {
@@ -1024,7 +1007,7 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<_AdLoadResult> _loadInterstitialAd(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
     String adId,
   ) async {
@@ -1064,7 +1047,7 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<_AdLoadResult> _loadRewardedAd(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
     String adId,
   ) async {
@@ -1104,7 +1087,7 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<_AdLoadResult> _loadBannerAd(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
     String adId,
   ) async {
@@ -1159,7 +1142,7 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<_AdLoadResult> _loadNativeAd(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
     String adId,
   ) async {
@@ -1171,9 +1154,10 @@ class FlutterPdfAdLoader<K> {
       }
     }
 
+    final factoryId = _nativeAdFactoryIdBuilder?.call(placement, info);
     final ad = NativeAd(
       adUnitId: adId,
-      factoryId: _nativeAdFactoryIdBuilder?.call(placement),
+      factoryId: factoryId,
       listener: NativeAdListener(
         onAdLoaded: (ad) {
           if (completer.isCompleted) {
@@ -1199,8 +1183,8 @@ class FlutterPdfAdLoader<K> {
         onPaidEvent: _buildOnPaidEvent(placement, info),
       ),
       request: _defaultAdRequest,
-      nativeAdOptions: _nativeAdOptionsBuilder?.call(placement),
-      nativeTemplateStyle: _nativeAdFactoryIdBuilder?.call(placement) == null
+      nativeAdOptions: _nativeAdOptionsBuilder?.call(placement, info),
+      nativeTemplateStyle: factoryId == null
           ? (_nativeTemplateStyleBuilder?.call(placement) ??
                 _nativeTemplateStyle)
           : null,
@@ -1216,7 +1200,10 @@ class FlutterPdfAdLoader<K> {
     return completer.future;
   }
 
-  OnPaidEventCallback? _buildOnPaidEvent(K placement, AdInfoBean info) {
+  OnPaidEventCallback? _buildOnPaidEvent(
+    AdPlacement placement,
+    AdInfoBean info,
+  ) {
     final onPaidEvent = _onPaidEvent;
     if (onPaidEvent == null) {
       return null;
@@ -1225,7 +1212,7 @@ class FlutterPdfAdLoader<K> {
       onPaidEvent(
         placement,
         info,
-        _adPosIds[ad] ?? placement as Object,
+        _requireAdPosId(ad),
         ad,
         valueMicros,
         precision,
@@ -1234,35 +1221,43 @@ class FlutterPdfAdLoader<K> {
     };
   }
 
-  void _bindAdPosId(Ad ad, Object adPosId) {
+  void _bindAdPosId(Ad ad, AdPosId adPosId) {
     _adPosIds[ad] = adPosId;
   }
 
-  void _bindEntryAdPosId(LoadedAdCacheEntry entry, Object adPosId) {
+  void _bindEntryAdPosId(LoadedAdCacheEntry entry, AdPosId adPosId) {
     entry.bindAdPosId(adPosId);
     _bindAdPosId(entry.ad, adPosId);
   }
 
-  void _logLoadStart(K placement, AdInfoBean info) {
+  AdPosId _requireAdPosId(Ad ad) {
+    final adPosId = _adPosIds[ad];
+    if (adPosId == null) {
+      throw StateError('AdPosId has not been bound to the ad');
+    }
+    return adPosId;
+  }
+
+  void _logLoadStart(AdPlacement placement, AdInfoBean info) {
     _onAdRequestStart?.call(placement, info);
     _log('load-start', placement, info: info);
   }
 
   void _logLoadFailure(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info, {
     String? reason,
     String? adNetwork,
     required double loadDurationSeconds,
   }) {
     final failReason = reason ?? 'unknown';
-    final resolvedAdNetwork = adNetwork ?? _fallbackAdNetwork;
+    final adSourceName = adNetwork ?? _fallbackAdNetwork;
     _onAdRequestFailure?.call(
       placement,
       info,
       failReason,
-      resolvedAdNetwork,
-      resolvedAdNetwork,
+      info.adSource,
+      adSourceName,
       loadDurationSeconds,
     );
     _log(
@@ -1276,7 +1271,7 @@ class FlutterPdfAdLoader<K> {
   }
 
   void _logLoadSuccess(
-    K placement,
+    AdPlacement placement,
     LoadedAdCacheEntry entry, {
     required int cacheCount,
     required double loadDurationSeconds,
@@ -1285,7 +1280,7 @@ class FlutterPdfAdLoader<K> {
     _onAdRequestSuccess?.call(
       placement,
       entry.info,
-      adSourceName,
+      entry.info.adSource,
       adSourceName,
       loadDurationSeconds,
     );
@@ -1323,52 +1318,52 @@ class FlutterPdfAdLoader<K> {
     return normalized;
   }
 
-  void _dispatchAdShowStart(K placement, AdInfoBean info, Ad ad) {
+  void _dispatchAdShowStart(AdPlacement placement, AdInfoBean info, Ad ad) {
     final adSourceName = _resolveAdNetwork(ad);
     _onAdShowStart?.call(
       placement,
       info,
-      _adPosIds[ad] ?? placement as Object,
-      adSourceName,
+      _requireAdPosId(ad),
+      info.adSource,
       adSourceName,
     );
   }
 
-  void _dispatchAdShowed(K placement, AdInfoBean info, Ad ad) {
+  void _dispatchAdShowed(AdPlacement placement, AdInfoBean info, Ad ad) {
     _onAdImpression?.call(placement, info);
     final adSourceName = _resolveAdNetwork(ad);
     _onAdShowed?.call(
       placement,
       info,
-      _adPosIds[ad] ?? placement as Object,
-      adSourceName,
+      _requireAdPosId(ad),
+      info.adSource,
       adSourceName,
     );
   }
 
-  void _dispatchAdClicked(K placement, AdInfoBean info, Ad ad) {
+  void _dispatchAdClicked(AdPlacement placement, AdInfoBean info, Ad ad) {
     final adSourceName = _resolveAdNetwork(ad);
     _onAdClicked?.call(
       placement,
       info,
-      _adPosIds[ad] ?? placement as Object,
-      adSourceName,
+      _requireAdPosId(ad),
+      info.adSource,
       adSourceName,
     );
   }
 
-  void _dispatchAdClosed(K placement, AdInfoBean info, Ad ad) {
+  void _dispatchAdClosed(AdPlacement placement, AdInfoBean info, Ad ad) {
     final adSourceName = _resolveAdNetwork(ad);
     _onAdClosed?.call(
       placement,
       info,
-      _adPosIds[ad] ?? placement as Object,
-      adSourceName,
+      _requireAdPosId(ad),
+      info.adSource,
       adSourceName,
     );
   }
 
-  void _logCacheExpired(K placement, {required String trigger}) {
+  void _logCacheExpired(AdPlacement placement, {required String trigger}) {
     if (kReleaseMode) {
       return;
     }
@@ -1379,7 +1374,7 @@ class FlutterPdfAdLoader<K> {
     );
   }
 
-  void _logCacheReload(K placement, {required String trigger}) {
+  void _logCacheReload(AdPlacement placement, {required String trigger}) {
     if (kReleaseMode) {
       return;
     }
@@ -1391,7 +1386,7 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<void> _consumeShownEntryAfterShow(
-    K placement,
+    AdPlacement placement,
     LoadedAdCacheEntry shownEntry, {
     required String trigger,
   }) async {
@@ -1443,7 +1438,7 @@ class FlutterPdfAdLoader<K> {
   }
 
   Future<void> _maybeReloadAfterActiveRequestsFinish(
-    K placement,
+    AdPlacement placement,
     AdInfoBean info,
   ) async {
     if (!_reloadWhenActiveRequestsFinish.contains(placement)) {
@@ -1474,7 +1469,7 @@ class FlutterPdfAdLoader<K> {
 
   void _log(
     String stage,
-    K placement, {
+    AdPlacement placement, {
     required AdInfoBean info,
     String? extra,
   }) {
@@ -1500,8 +1495,8 @@ class FlutterPdfAdLoader<K> {
     debugPrint(buffer.toString());
   }
 
-  String _placementLabel(K placement) {
-    return _placementLabelBuilder?.call(placement) ?? placement.toString();
+  String _placementLabel(AdPlacement placement) {
+    return placement.name;
   }
 }
 

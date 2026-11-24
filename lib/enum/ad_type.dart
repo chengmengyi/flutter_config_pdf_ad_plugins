@@ -1,25 +1,35 @@
-enum AdType { appOpen, interstitial, native, rewarded, banner }
+enum AdType {
+  interstitial,
+  rewarded,
+  appOpen,
+  banner,
+  native,
+  nativeFullscreen,
+}
 
 extension AdTypeX on AdType {
   String get rawValue {
     switch (this) {
       case AdType.appOpen:
-        return 'open';
+        return 'app_open';
       case AdType.interstitial:
-        return 'int';
+        return 'interstitial';
       case AdType.native:
-        return 'nat';
+        return 'native';
+      case AdType.nativeFullscreen:
+        return 'native_fullscreen';
       case AdType.rewarded:
-        return 'rv';
+        return 'rewarded';
       case AdType.banner:
-        return 'ban';
+        return 'banner';
     }
   }
 
   bool get isFullScreen {
     return this == AdType.appOpen ||
         this == AdType.interstitial ||
-        this == AdType.rewarded;
+        this == AdType.rewarded ||
+        this == AdType.nativeFullscreen;
   }
 
   bool get isInlineView {
@@ -28,17 +38,17 @@ extension AdTypeX on AdType {
 
   static AdType? tryParse(String? rawValue) {
     switch (rawValue) {
-      case 'open':
+      case 'app_open':
         return AdType.appOpen;
-      case 'int':
+      case 'interstitial':
         return AdType.interstitial;
-      case 'nat':
+      case 'native':
         return AdType.native;
-      case 'rv':
-      case 'raw':
-      case 'rwd':
+      case 'native_fullscreen':
+        return AdType.nativeFullscreen;
+      case 'rewarded':
         return AdType.rewarded;
-      case 'ban':
+      case 'banner':
         return AdType.banner;
       default:
         return null;

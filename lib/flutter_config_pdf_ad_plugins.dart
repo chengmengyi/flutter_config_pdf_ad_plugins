@@ -10,24 +10,28 @@ import 'package:google_mobile_ads/src/ad_instance_manager.dart'
     show instanceManager;
 
 import 'bean/ad_info_bean.dart';
+import 'enum/ad_placement.dart';
+import 'enum/ad_pos_id.dart';
 import 'enum/ad_type.dart';
 import 'flutter_config_pdf_ad_plugins_platform_interface.dart';
-import 'group/ad_user_group_manager.dart';
 import 'load/flutter_pdf_ad_loader.dart';
 import 'load/loaded_ad_cache_entry.dart';
 import 'limit/ad_daily_count_manager.dart';
 import 'revenue/ad_revenue_manager.dart';
+import 'remote/ad_remote_config_manager.dart';
+import 'remote/ad_remote_request.dart';
 import 'attribution/ad_adjust_manager.dart';
 import 'attribution/ad_referrer_manager.dart';
 import 'ump/ump_consent_result.dart';
 
 export 'bean/ad_info_bean.dart';
+export 'enum/ad_placement.dart';
+export 'enum/ad_pos_id.dart';
 export 'enum/ad_type.dart';
-export 'load/flutter_pdf_ad_loader.dart';
 export 'load/loaded_ad_cache_entry.dart';
 export 'ump/ump_consent_result.dart';
+export 'remote/ad_remote_request.dart';
 
-typedef FengKongLogic = bool Function();
 typedef NativeAdHeadlineCallback =
     FutureOr<void> Function({
       required String? headline,
@@ -41,9 +45,6 @@ abstract class FlutterPdfAdListener {
 
   /// AdMob 初始化成功时回调。
   void onAdmobInitialized() {}
-
-  /// 用户分组解析成功时回调。
-  void onUserGroupResolved(int userGroup) {}
 
   /// 进入 UMP 隐私协议流程时回调。
   void onUmpConsentFlowStart(String countryCode, bool requiresCmpByLocale) {}
@@ -64,11 +65,11 @@ abstract class FlutterPdfAdListener {
   void onUmpConsentCanRequestAds(bool canRequestAds) {}
 
   /// 发起广告请求时回调。
-  void onAdRequestStart(Object placement, AdInfoBean info) {}
+  void onAdRequestStart(AdPlacement placement, AdInfoBean info) {}
 
   /// 广告请求成功时回调，[loadDurationSeconds] 为本次 SDK 加载耗时，单位秒。
   void onAdRequestSuccess(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
     String adNetwork,
     String adSourceName,
@@ -77,7 +78,7 @@ abstract class FlutterPdfAdListener {
 
   /// 广告请求失败时回调，[loadDurationSeconds] 为本次 SDK 加载耗时，单位秒。
   void onAdRequestFailure(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
     String failReason,
     String adNetwork,
@@ -87,27 +88,27 @@ abstract class FlutterPdfAdListener {
 
   /// 广告满足展示条件，准备调用展示逻辑时回调。
   void onAdShowStart(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   ) {}
 
   /// 广告展示成功时回调。
   void onAdShowSuccess(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   ) {}
 
   /// 广告展示失败时回调。
   void onAdShowFailure(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
     String errorMessage,
@@ -115,26 +116,26 @@ abstract class FlutterPdfAdListener {
 
   /// 广告点击时回调。
   void onAdClicked(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   ) {}
 
   /// 广告关闭时回调。
   void onAdClosed(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   ) {}
 
   /// 广告产生收益时回调。
   void onAdPaidEvent(
-    Object placement,
-    Object adPosId,
+    AdPlacement placement,
+    AdPosId adPosId,
     double revenue,
     String currencyCode,
     String adNetwork,
@@ -194,29 +195,29 @@ class FlutterConfigPdfAdPlugins {
   double _debugMinRevenue = 0.008;
   double _debugMaxRevenue = 0.02;
 
-  FlutterPdfAdLoader<Object>? _adLoader;
-  final Map<Object, List<AdInfoBean>> _defaultConfigs =
-      <Object, List<AdInfoBean>>{};
-  final Map<Object, List<AdInfoBean>> _facebookConfigs =
-      <Object, List<AdInfoBean>>{};
-  final Set<Object> _interstitialLikeNativePlacements = <Object>{};
-  final Set<Object> _smallTemplateNativePlacements = <Object>{};
-  final Set<Object> _largeBannerPlacements = <Object>{};
-  final Map<Object, String> _collapsibleBannerDirections = <Object, String>{};
-  final Set<Object> _skipReloadAfterClosePlacements = <Object>{};
-  final Set<Object> _singleFillPlacements = <Object>{};
-  final Map<Object, Set<VoidCallback>> _placementLoadedListeners =
-      <Object, Set<VoidCallback>>{};
-  final Set<Object> _showingPlacements = <Object>{};
-  final Set<Object> _showingAdPlacements = <Object>{};
-  final Map<Object, _NativeInterstitialRouteHandle> _nativeInterstitialRoutes =
-      <Object, _NativeInterstitialRouteHandle>{};
-  final Map<Object, String> _userGroupFilterLogCache = <Object, String>{};
-  Duration? _adRequestTimeout;
+  FlutterPdfAdLoader? _adLoader;
+  final Map<AdPlacement, List<AdInfoBean>> _defaultConfigs =
+      <AdPlacement, List<AdInfoBean>>{};
+  final Map<AdPlacement, List<AdInfoBean>> _facebookConfigs =
+      <AdPlacement, List<AdInfoBean>>{};
+  final Set<AdPlacement> _interstitialLikeNativePlacements = <AdPlacement>{};
+  final Set<AdPlacement> _smallTemplateNativePlacements = <AdPlacement>{};
+  final Set<AdPlacement> _largeBannerPlacements = <AdPlacement>{};
+  final Map<AdPlacement, String> _collapsibleBannerDirections =
+      <AdPlacement, String>{};
+  final Set<AdPlacement> _skipReloadAfterClosePlacements = <AdPlacement>{};
+  final Set<AdPlacement> _blockedPlacements = <AdPlacement>{};
+  final Map<AdPlacement, Set<VoidCallback>> _placementLoadedListeners =
+      <AdPlacement, Set<VoidCallback>>{};
+  final Set<AdPlacement> _showingPlacements = <AdPlacement>{};
+  final Set<AdPlacement> _showingAdPlacements = <AdPlacement>{};
+  final Map<AdPlacement, _NativeInterstitialRouteHandle>
+  _nativeInterstitialRoutes = <AdPlacement, _NativeInterstitialRouteHandle>{};
+  final AdRemoteConfigManager _remoteConfigManager = AdRemoteConfigManager();
+  double? _accidentalClickProbabilityPercent;
   String? _lastFacebookUserCheckLogSignature;
   FlutterPdfAdListener? _listener;
   final Set<String> _cmpCountryCodes = <String>{..._defaultCmpCountryCodes};
-  FengKongLogic? _fengKongLogic;
   NativeAdHeadlineCallback? _nativeAdHeadlineCallback;
   StreamSubscription<Map<String, dynamic>>? _nativeAdHeadlineSubscription;
   String? _smallNativeAdLayoutName;
@@ -227,24 +228,50 @@ class FlutterConfigPdfAdPlugins {
   ///
   /// 这个方法不会调用 [MobileAds.initialize]。如果业务需要显式初始化
   /// Google Mobile Ads SDK，请先设置监听器，再调用 [initializeAdmob]。
-  Future<void> initPlugins({
-    required String distinctId,
-    required FengKongLogic fengKongLogic,
+  Future<bool> initPlugins({
+    required AdRemoteRequest remoteRequest,
+    required String defaultAd,
     required NativeAdHeadlineCallback nativeAdHeadlineCallback,
     String? smallNativeAdLayoutName,
     AdChoicesPlacement nativeAdChoicesPlacement =
         AdChoicesPlacement.bottomLeftCorner,
   }) async {
-    _fengKongLogic = fengKongLogic;
     _nativeAdHeadlineCallback = nativeAdHeadlineCallback;
     _listenForNativeAdHeadlines();
     _smallNativeAdLayoutName = _normalizeLayoutName(smallNativeAdLayoutName);
     _nativeAdChoicesPlacement = nativeAdChoicesPlacement;
     await FlutterConfigPdfAdPluginsPlatform.instance
         .configureSmallNativeAdLayout(_smallNativeAdLayoutName);
-    unawaited(AdUserGroupManager.instance.getUserGroup());
     unawaited(AdAdjustManager.instance.restore());
     unawaited(AdReferrerManager.instance.restore());
+    final remoteConfig = await _remoteConfigManager.load(
+      remoteRequest: remoteRequest,
+      defaultAd: defaultAd,
+    );
+    if (remoteConfig == null) {
+      _logGeneral('init-plugins-failed reason=no-valid-ad-config');
+      return false;
+    }
+    _defaultConfigs
+      ..clear()
+      ..addAll(remoteConfig.placements);
+    _blockedPlacements
+      ..clear()
+      ..addAll(remoteConfig.blockedPlacements);
+    _accidentalClickProbabilityPercent =
+        remoteConfig.accidentalClickProbabilityPercent;
+    AdDailyCountManager.instance.configure(
+      maxShowCount: remoteConfig.maxImpressions,
+      maxClickCount: remoteConfig.maxClicks,
+    );
+    final loader = _ensureLoader();
+    await _syncLoaderConfigs(loader, clearExistingCache: true);
+    _logGeneral(
+      'init-plugins-success placements=${_defaultConfigs.length} '
+      'blocked=${remoteConfig.blockedPlacements.map((value) => value.name).toList()} '
+      'accidentalClickProbabilityPercent=$_accidentalClickProbabilityPercent',
+    );
+    return true;
   }
 
   void _listenForNativeAdHeadlines() {
@@ -283,8 +310,6 @@ class FlutterConfigPdfAdPlugins {
   /// 如果不希望阻塞启动流程，业务侧可以自行使用 `unawaited` 调用。
   Future<void> initializeAdmob() async {
     try {
-      AdUserGroupManager.instance.onUserGroupResolved =
-          _notifyUserGroupResolved;
       await MobileAds.instance.initialize();
       _notifyAdmobInitialized();
     } catch (error) {
@@ -348,16 +373,6 @@ class FlutterConfigPdfAdPlugins {
     await _syncLoaderConfigs(loader, clearExistingCache: true);
   }
 
-  /// 获取 Android 设备标识。
-  Future<String?> getAndroidId() {
-    return AdUserGroupManager.instance.getAndroidId();
-  }
-
-  /// 获取当前用户分组。
-  Future<int?> getCurrentUserGroup() {
-    return AdUserGroupManager.instance.getUserGroup();
-  }
-
   /// 设置调试环境下的收益模拟区间。
   void updateDebugPaidRevenueRange({
     required double minRevenue,
@@ -378,77 +393,56 @@ class FlutterConfigPdfAdPlugins {
     );
   }
 
-  /// 设置每天允许的最大开屏广告展示数和点击数。
-  ///
-  /// 只统计 `adType=open` 的广告。达到任一上限后不再加载新的开屏广告，
-  /// 已经成功加载的缓存广告仍然可以展示，其他类型广告不受影响。
-  /// `null` 表示不限制对应计数；不调用此方法时默认不限制。
-  void setMaxShowAndClickNum({int? maxShowNum, int? maxClickNum}) {
-    AdDailyCountManager.instance.configure(
-      maxShowCount: maxShowNum,
-      maxClickCount: maxClickNum,
-    );
-  }
-
-  /// 判断当天的开屏广告展示数和点击数是否仍未达到配置上限。
-  ///
-  /// 此方法只读取计数，不会增加展示数或点击数。未配置上限时返回 `true`。
-  Future<bool> canTrackAppOpenAdChance() {
-    return AdDailyCountManager.instance.canLoadAd();
-  }
-
-  /// 配置同一广告位多层级请求的超时时间。
-  ///
-  /// 未配置或传入小于等于 0 的秒数时，不启用定时超时，只在 SDK 请求失败后
-  /// 请求下一层广告；传入正数时，当前层超过该时间未返回就会请求下一层。
-  void updateAdRequestTimeoutSeconds(int seconds) {
-    _adRequestTimeout = seconds <= 0 ? null : Duration(seconds: seconds);
-    _adLoader?.updateRequestFallbackDelay(_adRequestTimeout);
-  }
-
   /// 标记哪些原生广告位按插屏逻辑处理。
-  void updateInterstitialLikeNativePlacements<K>(Iterable<K> placements) {
+  void updateInterstitialLikeNativePlacements(
+    Iterable<AdPlacement> placements,
+  ) {
     _interstitialLikeNativePlacements
       ..clear()
-      ..addAll(placements.map((placement) => placement as Object));
+      ..addAll(placements.map((placement) => placement));
   }
 
   /// 标记哪些原生广告位使用小模板样式。
-  void updateSmallTemplateNativePlacements<K>(Iterable<K> placements) {
+  void updateSmallTemplateNativePlacements(Iterable<AdPlacement> placements) {
     _smallTemplateNativePlacements
       ..clear()
-      ..addAll(placements.map((placement) => placement as Object));
+      ..addAll(placements.map((placement) => placement));
   }
 
   /// 标记哪些 Banner 广告位使用大尺寸。
-  void updateLargeBannerPlacements<K>(Iterable<K> placements) {
+  void updateLargeBannerPlacements(Iterable<AdPlacement> placements) {
     _largeBannerPlacements
       ..clear()
-      ..addAll(placements.map((placement) => placement as Object));
+      ..addAll(placements.map((placement) => placement));
   }
 
   /// 配置可折叠 Banner 的展开方向。
-  void updateCollapsibleBannerPlacements<K>(Map<K, String> placements) {
+  void updateCollapsibleBannerPlacements(Map<AdPlacement, String> placements) {
     _collapsibleBannerDirections
       ..clear()
       ..addAll(
         placements.map(
-          (placement, direction) =>
-              MapEntry(placement as Object, direction.trim()),
+          (placement, direction) => MapEntry(placement, direction.trim()),
         ),
       );
   }
 
   /// 监听指定广告位加载完成。
-  void addPlacementLoadedListener<K>(K placement, VoidCallback listener) {
+  void addPlacementLoadedListener(
+    AdPlacement placement,
+    VoidCallback listener,
+  ) {
     _placementLoadedListeners
-        .putIfAbsent(placement as Object, () => <VoidCallback>{})
+        .putIfAbsent(placement, () => <VoidCallback>{})
         .add(listener);
   }
 
   /// 移除指定广告位的加载监听。
-  void removePlacementLoadedListener<K>(K placement, VoidCallback listener) {
-    final listeners = _placementLoadedListeners[placement as Object];
+  void removePlacementLoadedListener(
+    AdPlacement placement,
+    VoidCallback listener,
+  ) {
+    final listeners = _placementLoadedListeners[placement];
     if (listeners == null) {
       return;
     }
@@ -459,22 +453,13 @@ class FlutterConfigPdfAdPlugins {
   }
 
   /// 配置关闭后不自动补加载的广告位。
-  void updateSkipReloadAfterClosePlacements<K>(Iterable<K> placements) {
+  void updateSkipReloadAfterClosePlacements(Iterable<AdPlacement> placements) {
     _skipReloadAfterClosePlacements
       ..clear()
-      ..addAll(placements.map((placement) => placement as Object));
+      ..addAll(placements.map((placement) => placement));
     _adLoader?.updateSkipReloadAfterClosePlacements(
       _skipReloadAfterClosePlacements,
     );
-  }
-
-  /// 配置首个成功后不再接收后续成功结果的广告位。
-  void updateSingleFillPlacements<K>(Iterable<K> placements) {
-    _singleFillPlacements
-      ..clear()
-      ..addAll(placements.map((placement) => placement as Object));
-    _adLoader?.updateSingleFillPlacements(_singleFillPlacements);
-    _adLoader?.updateRequestFallbackDelay(_adRequestTimeout);
   }
 
   /// 更新收益阈值事件配置。
@@ -545,10 +530,10 @@ class FlutterConfigPdfAdPlugins {
     return _showingAdPlacements.isEmpty;
   }
 
-  Future<Set<Object>> _closeNativeInterstitialPages() async {
-    final closedPlacements = <Object>{};
+  Future<Set<AdPlacement>> _closeNativeInterstitialPages() async {
+    final closedPlacements = <AdPlacement>{};
     final closedFutures = <Future<void>>[];
-    final routes = Map<Object, _NativeInterstitialRouteHandle>.of(
+    final routes = Map<AdPlacement, _NativeInterstitialRouteHandle>.of(
       _nativeInterstitialRoutes,
     );
     for (final entry in routes.entries) {
@@ -734,13 +719,12 @@ class FlutterConfigPdfAdPlugins {
   }
 
   /// 配置广告加载器的通用参数。
-  void configureLoader<K>({
+  void configureLoader({
     AdRequest? defaultAdRequest,
     AdSize? bannerSize,
     NativeTemplateStyle? nativeTemplateStyle,
-    String Function(K placement)? placementLabelBuilder,
   }) {
-    _adLoader ??= FlutterPdfAdLoader<Object>(
+    _adLoader ??= FlutterPdfAdLoader(
       defaultAdRequest: defaultAdRequest,
       bannerSize: bannerSize,
       bannerSizeBuilder: (placement) {
@@ -752,8 +736,9 @@ class FlutterConfigPdfAdPlugins {
       adRequestBuilder: (placement, request) {
         return _buildBannerRequest(placement, request);
       },
-      nativeAdFactoryIdBuilder: (placement) {
-        if (_interstitialLikeNativePlacements.contains(placement)) {
+      nativeAdFactoryIdBuilder: (placement, info) {
+        if (info.adType == AdType.nativeFullscreen ||
+            _interstitialLikeNativePlacements.contains(placement)) {
           return _fullScreenNativeFactoryId;
         }
         if (_smallNativeAdLayoutName != null &&
@@ -762,8 +747,9 @@ class FlutterConfigPdfAdPlugins {
         }
         return null;
       },
-      nativeAdOptionsBuilder: (placement) {
-        if (_interstitialLikeNativePlacements.contains(placement)) {
+      nativeAdOptionsBuilder: (placement, info) {
+        if (info.adType == AdType.nativeFullscreen ||
+            _interstitialLikeNativePlacements.contains(placement)) {
           return NativeAdOptions(
             adChoicesPlacement: _nativeAdChoicesPlacement,
             mediaAspectRatio: MediaAspectRatio.portrait,
@@ -788,20 +774,14 @@ class FlutterConfigPdfAdPlugins {
       onAdClicked: _handleAdClicked,
       onAdClosed: _handleAdClosed,
       onPaidEvent: _handleAdPaidEvent,
-      canLoadAppOpenAd: (_) => AdDailyCountManager.instance.canLoadAd(),
+      canRequestAd: AdDailyCountManager.instance.canLoadAd,
       onAdImpression: (_, info) {
-        if (info.parsedAdType == AdType.appOpen) {
-          unawaited(AdDailyCountManager.instance.recordShow());
-        }
+        unawaited(AdDailyCountManager.instance.recordShow());
       },
-      placementLabelBuilder: placementLabelBuilder == null
-          ? null
-          : (placement) => placementLabelBuilder(placement as K),
     );
     _adLoader?.updateSkipReloadAfterClosePlacements(
       _skipReloadAfterClosePlacements,
     );
-    _adLoader?.updateSingleFillPlacements(_singleFillPlacements);
   }
 
   String? _normalizeLayoutName(String? layoutName) {
@@ -812,107 +792,38 @@ class FlutterConfigPdfAdPlugins {
     return value;
   }
 
-  /// 批量更新默认广告位配置。
-  void updateConfigs<K>(
-    Map<K, List<AdInfoBean>> configs, {
-    String Function(K placement)? placementLabelBuilder,
-  }) {
-    _defaultConfigs
-      ..clear()
-      ..addAll(_boxConfigs(configs));
-    _ensureLoader<K>(placementLabelBuilder: placementLabelBuilder);
-  }
-
-  /// 更新单个默认广告位配置。
-  void updatePlacementConfig<K>(
-    K placement,
-    List<AdInfoBean> configs, {
-    String Function(K placement)? placementLabelBuilder,
-  }) {
-    _defaultConfigs[placement as Object] = List<AdInfoBean>.unmodifiable(
-      configs,
-    );
-    _ensureLoader<K>(placementLabelBuilder: placementLabelBuilder);
-  }
-
-  /// 批量更新 Facebook 用户的广告位配置。
-  void updateFacebookConfigs<K>(
-    Map<K, List<AdInfoBean>> configs, {
-    String Function(K placement)? placementLabelBuilder,
-  }) {
-    _facebookConfigs
-      ..clear()
-      ..addAll(_boxConfigs(configs));
-    _ensureLoader<K>(placementLabelBuilder: placementLabelBuilder);
-  }
-
-  /// 更新单个 Facebook 用户广告位配置。
-  void updateFacebookPlacementConfig<K>(
-    K placement,
-    List<AdInfoBean> configs, {
-    String Function(K placement)? placementLabelBuilder,
-  }) {
-    _facebookConfigs[placement as Object] = List<AdInfoBean>.unmodifiable(
-      configs,
-    );
-    _ensureLoader<K>(placementLabelBuilder: placementLabelBuilder);
-  }
-
   /// 加载指定广告位并写入缓存。
-  Future<LoadedAdCacheEntry?> loadPlacement<K>(
-    K placement, {
-    List<AdInfoBean>? configs,
+  Future<LoadedAdCacheEntry?> loadPlacement(
+    AdPlacement placement, {
     bool force = false,
-    String Function(K placement)? placementLabelBuilder,
   }) async {
-    final boxedPlacement = placement as Object;
-    if (_isFengKongBlocked('load', boxedPlacement)) {
-      return null;
-    }
-    final loader = _ensureLoader<K>(
-      placementLabelBuilder: placementLabelBuilder,
-    );
-    return _loadPlacementWithAudience(
-      loader,
-      boxedPlacement,
-      configs: configs,
-      force: force,
-    );
+    final loader = _ensureLoader();
+    return _loadPlacementWithAudience(loader, placement, force: force);
   }
 
   /// 获取指定广告位的缓存条目。
-  Future<LoadedAdCacheEntry?> getCachedEntry<K>(K placement) async {
-    final loader = _ensureLoader<K>();
+  Future<LoadedAdCacheEntry?> getCachedEntry(AdPlacement placement) async {
+    final loader = _ensureLoader();
     await _syncLoaderConfigs(loader);
-    return loader.getCachedEntry(placement as Object);
+    return loader.getCachedEntry(placement);
   }
 
   /// 获取指定广告位的缓存广告对象。
-  Future<Ad?> getCachedAd<K>(K placement) async {
-    final loader = _ensureLoader<K>();
+  Future<Ad?> getCachedAd(AdPlacement placement) async {
+    final loader = _ensureLoader();
     await _syncLoaderConfigs(loader);
-    return loader.getCachedAd(placement as Object);
+    return loader.getCachedAd(placement);
   }
 
   /// 获取指定广告位当前可用的缓存广告信息。
   ///
   /// 当缓存不存在、已过期，或当前不可用于展示时返回 `null`。
-  Future<AdInfoBean?> getAvailableCachedAdInfo<K>(K placement) async {
-    final boxedPlacement = placement as Object;
-    if (_isFengKongBlocked('check-cache', boxedPlacement)) {
-      return null;
-    }
-    final loader = _ensureLoader<K>();
+  Future<AdInfoBean?> getAvailableCachedAdInfo(AdPlacement placement) async {
+    final boxedPlacement = placement;
+    final loader = _ensureLoader();
     await _syncLoaderConfigs(loader);
     final cachedEntry = await loader.getCachedEntry(boxedPlacement);
     if (cachedEntry == null || cachedEntry.isExpired) {
-      return null;
-    }
-    if (_isFengKongBlocked(
-      'check-cache-entry',
-      boxedPlacement,
-      info: cachedEntry.info,
-    )) {
       return null;
     }
     return cachedEntry.info;
@@ -920,13 +831,10 @@ class FlutterConfigPdfAdPlugins {
 
   /// 判断指定广告位当前是否满足展示条件。
   ///
-  /// 仅判断配置和风控，不要求当前已有缓存。
-  Future<bool> canDisplayPlacement<K>(K placement) async {
-    final boxedPlacement = placement as Object;
-    if (_isFengKongBlocked('check-display', boxedPlacement)) {
-      return false;
-    }
-    final loader = _ensureLoader<K>();
+  /// 仅判断配置，不要求当前已有缓存。
+  Future<bool> canDisplayPlacement(AdPlacement placement) async {
+    final boxedPlacement = placement;
+    final loader = _ensureLoader();
     await _syncLoaderConfigs(loader);
     final cachedEntry = await loader.getCachedEntry(boxedPlacement);
     final info =
@@ -935,33 +843,22 @@ class FlutterConfigPdfAdPlugins {
     if (info == null) {
       return false;
     }
-    if (_isFengKongBlocked('check-display-entry', boxedPlacement, info: info)) {
-      return false;
-    }
     return true;
   }
 
   /// 构建指定广告位的缓存广告组件。
-  Future<Widget?> buildCachedAdWidget<K>(
-    K placement, {
-    required Object adPosId,
+  Future<Widget?> buildCachedAdWidget(
+    AdPlacement placement, {
+    required AdPosId adPosId,
   }) async {
-    final loader = _ensureLoader<K>();
+    final loader = _ensureLoader();
     await _syncLoaderConfigs(loader);
-    final boxedPlacement = placement as Object;
+    final boxedPlacement = placement;
     final cachedEntry = await loader.reserveCachedWidgetEntry(
       boxedPlacement,
       adPosId: adPosId,
     );
     if (cachedEntry == null) {
-      return null;
-    }
-    if (_isFengKongBlocked(
-      'build-widget',
-      boxedPlacement,
-      info: cachedEntry.info,
-    )) {
-      await cachedEntry.releaseWidgetLease();
       return null;
     }
     final ad = cachedEntry.ad;
@@ -978,16 +875,16 @@ class FlutterConfigPdfAdPlugins {
   }
 
   /// 取出一个可直接消费的缓存广告组件。
-  Future<Widget?> takeCachedAdWidget<K>(
-    K placement, {
-    required Object adPosId,
+  Future<Widget?> takeCachedAdWidget(
+    AdPlacement placement, {
+    required AdPosId adPosId,
     bool loadIfNeeded = true,
     bool reloadAfterTake = false,
     Duration disposeDelay = const Duration(seconds: 2),
   }) async {
-    final loader = _ensureLoader<K>();
+    final loader = _ensureLoader();
     await _syncLoaderConfigs(loader);
-    final boxedPlacement = placement as Object;
+    final boxedPlacement = placement;
     LoadedAdCacheEntry? cachedEntry = await loader.getUnleasedCachedEntry(
       boxedPlacement,
     );
@@ -995,7 +892,6 @@ class FlutterConfigPdfAdPlugins {
       cachedEntry = await _loadPlacementWithAudience(
         loader,
         boxedPlacement,
-        configs: null,
         force: true,
       );
       if (cachedEntry?.hasWidgetLease ?? false) {
@@ -1003,13 +899,6 @@ class FlutterConfigPdfAdPlugins {
       }
     }
     if (cachedEntry == null) {
-      return null;
-    }
-    if (_isFengKongBlocked(
-      'take-widget',
-      boxedPlacement,
-      info: cachedEntry.info,
-    )) {
       return null;
     }
     final takenEntry = await loader.takeCachedEntry(
@@ -1049,17 +938,14 @@ class FlutterConfigPdfAdPlugins {
   /// 返回 `true` 表示广告已展示并正常关闭，业务可以继续下一步；返回 `false`
   /// 表示广告未展示成功；返回 `null` 表示广告展示后被 [closeFullScreenAd]
   /// 主动关闭，插件会消费旧广告并请求下一条，业务不应继续下一步。
-  Future<bool?> showCachedAd<K>(
-    K placement, {
-    required Object adPosId,
+  Future<bool?> showCachedAd(
+    AdPlacement placement, {
+    required AdPosId adPosId,
     BuildContext? context,
     OnUserEarnedRewardCallback? onUserEarnedReward,
   }) {
-    final boxedPlacement = placement as Object;
-    if (_isFengKongBlocked('show', boxedPlacement)) {
-      return Future<bool?>.value(false);
-    }
-    final loader = _ensureLoader<K>();
+    final boxedPlacement = placement;
+    final loader = _ensureLoader();
     return _showCachedAdWithAudience(
       loader,
       boxedPlacement,
@@ -1070,26 +956,17 @@ class FlutterConfigPdfAdPlugins {
   }
 
   /// 预加载全部或指定广告位。
-  Future<void> preloadAll<K>({
-    Iterable<K>? placements,
+  Future<void> preloadAll({
+    Iterable<AdPlacement>? placements,
     bool force = false,
-    String Function(K placement)? placementLabelBuilder,
   }) async {
-    if (_isFengKongBlocked(
-      'preload',
-      placements == null ? 'all' : placements.toList(growable: false),
-    )) {
-      return;
-    }
-    final loader = _ensureLoader<K>(
-      placementLabelBuilder: placementLabelBuilder,
-    );
+    final loader = _ensureLoader();
     await _syncLoaderConfigs(loader);
     final activeConfigs = await _resolveActiveConfigs();
     final targetPlacements =
-        placements?.map((placement) => placement as Object).toList() ??
+        placements?.map((placement) => placement).toList() ??
         activeConfigs.keys.toList(growable: false);
-    final allowedPlacements = <Object>[];
+    final allowedPlacements = <AdPlacement>[];
     for (final placement in targetPlacements) {
       final canRequest = await _canRequestPlacement(
         placement,
@@ -1098,8 +975,6 @@ class FlutterConfigPdfAdPlugins {
       );
       if (canRequest) {
         allowedPlacements.add(placement);
-      } else {
-        await loader.clearPlacementCache(placement);
       }
     }
     if (allowedPlacements.isEmpty) {
@@ -1109,30 +984,25 @@ class FlutterConfigPdfAdPlugins {
   }
 
   /// 清理指定广告位的缓存。
-  Future<void> clearPlacementCache<K>(K placement) async {
-    final loader = _ensureLoader<K>();
+  Future<void> clearPlacementCache(AdPlacement placement) async {
+    final loader = _ensureLoader();
     await _syncLoaderConfigs(loader);
-    return loader.clearPlacementCache(placement as Object);
+    return loader.clearPlacementCache(placement);
   }
 
   Future<LoadedAdCacheEntry?> _loadPlacementWithAudience(
-    FlutterPdfAdLoader<Object> loader,
-    Object placement, {
-    required List<AdInfoBean>? configs,
+    FlutterPdfAdLoader loader,
+    AdPlacement placement, {
     required bool force,
   }) async {
-    if (_isFengKongBlocked('load', placement)) {
-      return null;
-    }
     await _syncLoaderConfigs(loader);
-    final resolvedConfigs = await _resolveConfigsForLoad(placement, configs);
+    final resolvedConfigs = await _resolveConfigsForPlacement(placement);
     final canRequest = await _canRequestPlacement(
       placement,
       resolvedConfigs,
       action: 'load',
     );
     if (!canRequest) {
-      await loader.clearPlacementCache(placement);
       return null;
     }
     return loader.loadPlacement(
@@ -1143,28 +1013,26 @@ class FlutterConfigPdfAdPlugins {
   }
 
   Future<bool> _canRequestPlacement(
-    Object placement,
+    AdPlacement placement,
     List<AdInfoBean>? configs, {
     required String action,
   }) async {
+    if (_blockedPlacements.contains(placement)) {
+      _logGeneral('$action-blocked placement=$placement reason=scene-blocked');
+      return false;
+    }
     final info = _pickPreferredAdInfo(configs);
     if (info == null) {
       _logGeneral('$action-blocked placement=$placement reason=no-config');
-      return false;
-    }
-    if (_isFengKongBlocked('$action-entry', placement, info: info)) {
-      _logGeneral(
-        '$action-blocked placement=$placement reason=fengkong-blocked',
-      );
       return false;
     }
     return true;
   }
 
   Future<bool?> _showCachedAdWithAudience(
-    FlutterPdfAdLoader<Object> loader,
-    Object placement, {
-    required Object adPosId,
+    FlutterPdfAdLoader loader,
+    AdPlacement placement, {
+    required AdPosId adPosId,
     required BuildContext? context,
     required OnUserEarnedRewardCallback? onUserEarnedReward,
   }) async {
@@ -1185,28 +1053,19 @@ class FlutterConfigPdfAdPlugins {
   }
 
   /// 加载后立即展示指定广告位。
-  Future<bool?> loadAndShow<K>(
-    K placement, {
-    required Object adPosId,
+  Future<bool?> loadAndShow(
+    AdPlacement placement, {
+    required AdPosId adPosId,
     BuildContext? context,
-    List<AdInfoBean>? configs,
     bool forceReload = false,
     OnUserEarnedRewardCallback? onUserEarnedReward,
-    String Function(K placement)? placementLabelBuilder,
   }) {
-    final boxedPlacement = placement as Object;
-    if (_isFengKongBlocked('load-and-show', boxedPlacement)) {
-      return Future<bool?>.value(false);
-    }
-    final loader = _ensureLoader<K>(
-      placementLabelBuilder: placementLabelBuilder,
-    );
+    final loader = _ensureLoader();
     return _loadAndShowPlacement(
       loader,
-      boxedPlacement,
+      placement,
       adPosId: adPosId,
       context: context,
-      configs: configs,
       forceReload: forceReload,
       onUserEarnedReward: onUserEarnedReward,
     );
@@ -1224,29 +1083,20 @@ class FlutterConfigPdfAdPlugins {
     _showingPlacements.clear();
     _showingAdPlacements.clear();
     _nativeInterstitialRoutes.clear();
-    _singleFillPlacements.clear();
-    AdUserGroupManager.instance.onUserGroupResolved = null;
     if (loader != null) {
       await loader.dispose();
     }
   }
 
-  FlutterPdfAdLoader<Object> _ensureLoader<K>({
-    String Function(K placement)? placementLabelBuilder,
-  }) {
-    configureLoader<K>(placementLabelBuilder: placementLabelBuilder);
+  FlutterPdfAdLoader _ensureLoader() {
+    configureLoader();
     return _adLoader!;
   }
 
-  Map<Object, List<AdInfoBean>> _boxConfigs<K>(
-    Map<K, List<AdInfoBean>> configs,
+  AdRequest _buildBannerRequest(
+    AdPlacement placement,
+    AdRequest defaultRequest,
   ) {
-    return configs.map(
-      (placement, items) => MapEntry(placement as Object, items),
-    );
-  }
-
-  AdRequest _buildBannerRequest(Object placement, AdRequest defaultRequest) {
     final direction = _collapsibleBannerDirections[placement];
     if (direction == null || direction.isEmpty) {
       return defaultRequest;
@@ -1266,11 +1116,11 @@ class FlutterConfigPdfAdPlugins {
   }
 
   Future<void> _syncLoaderConfigs(
-    FlutterPdfAdLoader<Object> loader, {
+    FlutterPdfAdLoader loader, {
     bool clearExistingCache = false,
   }) async {
     final activeConfigs = await _resolveActiveConfigs();
-    loader.updateConfigs(activeConfigs);
+    loader.replaceConfigsFromRemote(activeConfigs);
     final cachedPlacements = loader.cacheMap.keys.toList(growable: false);
     final placementsToClear = clearExistingCache
         ? cachedPlacements
@@ -1287,11 +1137,13 @@ class FlutterConfigPdfAdPlugins {
     }
   }
 
-  Future<Map<Object, List<AdInfoBean>>> _resolveActiveConfigs() async {
+  Future<Map<AdPlacement, List<AdInfoBean>>> _resolveActiveConfigs() async {
     final isFacebookUser = await _isFacebookUser();
-    final userGroup = await AdUserGroupManager.instance.getUserGroup();
-    final keys = <Object>{..._defaultConfigs.keys, ..._facebookConfigs.keys};
-    final resolved = <Object, List<AdInfoBean>>{};
+    final keys = <AdPlacement>{
+      ..._defaultConfigs.keys,
+      ..._facebookConfigs.keys,
+    };
+    final resolved = <AdPlacement, List<AdInfoBean>>{};
 
     for (final key in keys) {
       final selected =
@@ -1299,14 +1151,7 @@ class FlutterConfigPdfAdPlugins {
           ? _facebookConfigs[key]
           : _defaultConfigs[key];
       if (selected != null) {
-        final filtered = _filterConfigsByUserGroup(
-          key,
-          selected,
-          userGroup: userGroup,
-        );
-        if (filtered.isNotEmpty) {
-          resolved[key] = filtered;
-        }
+        resolved[key] = selected;
       }
     }
 
@@ -1314,10 +1159,9 @@ class FlutterConfigPdfAdPlugins {
   }
 
   Future<List<AdInfoBean>?> _resolveConfigsForPlacement(
-    Object placement,
+    AdPlacement placement,
   ) async {
     final isFacebookUser = await _isFacebookUser();
-    final userGroup = await AdUserGroupManager.instance.getUserGroup();
     final selected =
         isFacebookUser && (_facebookConfigs[placement]?.isNotEmpty ?? false)
         ? _facebookConfigs[placement]
@@ -1325,35 +1169,22 @@ class FlutterConfigPdfAdPlugins {
     if (selected == null) {
       return null;
     }
-    return _filterConfigsByUserGroup(placement, selected, userGroup: userGroup);
-  }
-
-  Future<List<AdInfoBean>?> _resolveConfigsForLoad(
-    Object placement,
-    List<AdInfoBean>? configs,
-  ) async {
-    if (configs == null) {
-      return _resolveConfigsForPlacement(placement);
-    }
-    final userGroup = await AdUserGroupManager.instance.getUserGroup();
-    return _filterConfigsByUserGroup(placement, configs, userGroup: userGroup);
+    return selected;
   }
 
   AdInfoBean? _pickPreferredAdInfo(List<AdInfoBean>? configs) {
     if (configs == null || configs.isEmpty) {
       return null;
     }
-    final sorted =
-        configs
-            .where(
-              (config) => config.adId != null && config.parsedAdType != null,
-            )
-            .toList(growable: false)
-          ..sort((left, right) => (right.sort ?? 0).compareTo(left.sort ?? 0));
+    final sorted = configs.indexed.toList(growable: false)
+      ..sort((left, right) {
+        final bySort = left.$2.sort.compareTo(right.$2.sort);
+        return bySort != 0 ? bySort : left.$1.compareTo(right.$1);
+      });
     if (sorted.isEmpty) {
       return null;
     }
-    return sorted.first;
+    return sorted.first.$2;
   }
 
   Future<bool> _isFacebookUser() async {
@@ -1390,46 +1221,6 @@ class FlutterConfigPdfAdPlugins {
     return (value ?? '').toLowerCase().contains('facebook');
   }
 
-  List<AdInfoBean> _filterConfigsByUserGroup(
-    Object placement,
-    List<AdInfoBean> configs, {
-    required int? userGroup,
-  }) {
-    final filtered = configs
-        .where((config) {
-          final groups = config.userGroup ?? const <int>[];
-          if (groups.contains(0)) {
-            return true;
-          }
-          if (groups.isEmpty) {
-            return false;
-          }
-          if (userGroup == null) {
-            return false;
-          }
-          return groups.contains(userGroup);
-        })
-        .toList(growable: false);
-
-    final logSignature =
-        'userGroup=${userGroup ?? 'null'}|'
-        'before=${configs.length}|'
-        'after=${filtered.length}';
-
-    if (!kReleaseMode && _userGroupFilterLogCache[placement] != logSignature) {
-      _userGroupFilterLogCache[placement] = logSignature;
-      debugPrint(
-        '[FlutterConfigPdfAdPlugins] user-group-filter '
-        'placement=$placement '
-        'userGroup=${userGroup ?? 'null'} '
-        'before=${configs.length} '
-        'after=${filtered.length}',
-      );
-    }
-
-    return filtered;
-  }
-
   void _logGeneral(String message) {
     if (kReleaseMode) {
       return;
@@ -1437,22 +1228,7 @@ class FlutterConfigPdfAdPlugins {
     debugPrint('[FlutterConfigPdfAdPlugins] $message');
   }
 
-  bool _isFengKongBlocked(String stage, Object placement, {AdInfoBean? info}) {
-    final blocked = checkFengKong();
-    if (!blocked) {
-      return false;
-    }
-    if (info != null) {
-      _log(stage, placement, info, extra: 'reason=fengkong-blocked');
-    } else {
-      _logGeneral(
-        '$stage-blocked placement=$placement reason=fengkong-blocked',
-      );
-    }
-    return true;
-  }
-
-  void _handlePlacementLoaded(Object placement, LoadedAdCacheEntry entry) {
+  void _handlePlacementLoaded(AdPlacement placement, LoadedAdCacheEntry entry) {
     final listeners = _placementLoadedListeners[placement];
     if (listeners == null || listeners.isEmpty) {
       return;
@@ -1465,11 +1241,6 @@ class FlutterConfigPdfAdPlugins {
   void _notifyAdmobInitialized() {
     _logGeneral('notify onAdmobInitialized===${null == _listener}');
     _listener?.onAdmobInitialized();
-  }
-
-  void _notifyUserGroupResolved(int userGroup) {
-    _logGeneral('notify onUserGroupResolved userGroup=$userGroup');
-    _listener?.onUserGroupResolved(userGroup);
   }
 
   void _handleUmpConsentFlowStart(
@@ -1499,12 +1270,12 @@ class FlutterConfigPdfAdPlugins {
     _listener?.onUmpConsentCanRequestAds(canRequestAds);
   }
 
-  void _handleAdRequestStart(Object placement, AdInfoBean info) {
+  void _handleAdRequestStart(AdPlacement placement, AdInfoBean info) {
     _listener?.onAdRequestStart(placement, info);
   }
 
   void _handleAdRequestSuccess(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
     String adNetwork,
     String adSourceName,
@@ -1520,7 +1291,7 @@ class FlutterConfigPdfAdPlugins {
   }
 
   void _handleAdRequestFailure(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
     String failReason,
     String adNetwork,
@@ -1538,9 +1309,9 @@ class FlutterConfigPdfAdPlugins {
   }
 
   void _handleAdShowStart(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   ) {
@@ -1548,9 +1319,9 @@ class FlutterConfigPdfAdPlugins {
   }
 
   void _handleAdShowSuccess(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   ) {
@@ -1564,9 +1335,9 @@ class FlutterConfigPdfAdPlugins {
   }
 
   void _handleAdShowFailure(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
     String errorMessage,
@@ -1582,22 +1353,20 @@ class FlutterConfigPdfAdPlugins {
   }
 
   void _handleAdClicked(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   ) {
-    if (info.parsedAdType == AdType.appOpen) {
-      unawaited(AdDailyCountManager.instance.recordClick());
-    }
+    unawaited(AdDailyCountManager.instance.recordClick());
     _listener?.onAdClicked(placement, info, adPosId, adNetwork, adSourceName);
   }
 
   void _handleAdClosed(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   ) {
@@ -1605,39 +1374,39 @@ class FlutterConfigPdfAdPlugins {
   }
 
   void _handleAdShowStartForAd(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     Ad? ad,
   ) {
     _handleAdShowStart(
       placement,
       info,
       adPosId,
-      _resolveAdNetwork(ad),
+      info.adSource,
       _resolveAdSourceName(ad),
     );
   }
 
   void _handleAdShowSuccessForAd(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     Ad? ad,
   ) {
     _handleAdShowSuccess(
       placement,
       info,
       adPosId,
-      _resolveAdNetwork(ad),
+      info.adSource,
       _resolveAdSourceName(ad),
     );
   }
 
   void _handleAdShowFailureForAd(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     Ad? ad,
     String errorMessage,
   ) {
@@ -1645,39 +1414,35 @@ class FlutterConfigPdfAdPlugins {
       placement,
       info,
       adPosId,
-      _resolveAdNetwork(ad),
+      info.adSource,
       _resolveAdSourceName(ad),
       errorMessage,
     );
   }
 
   void _handleAdClosedForAd(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     Ad? ad,
   ) {
     _handleAdClosed(
       placement,
       info,
       adPosId,
-      _resolveAdNetwork(ad),
+      info.adSource,
       _resolveAdSourceName(ad),
     );
   }
 
   Future<bool?> _loadAndShowPlacement(
-    FlutterPdfAdLoader<Object> loader,
-    Object placement, {
-    required Object adPosId,
+    FlutterPdfAdLoader loader,
+    AdPlacement placement, {
+    required AdPosId adPosId,
     required BuildContext? context,
-    required List<AdInfoBean>? configs,
     required bool forceReload,
     required OnUserEarnedRewardCallback? onUserEarnedReward,
   }) async {
-    if (_isFengKongBlocked('load-and-show', placement)) {
-      return false;
-    }
     if (!forceReload) {
       final shown = await _showPlacement(
         loader,
@@ -1703,7 +1468,6 @@ class FlutterConfigPdfAdPlugins {
     final entry = await _loadPlacementWithAudience(
       loader,
       placement,
-      configs: configs,
       force: forceReload,
     );
     if (entry == null) {
@@ -1732,15 +1496,12 @@ class FlutterConfigPdfAdPlugins {
   }
 
   Future<bool?> _showPlacement(
-    FlutterPdfAdLoader<Object> loader,
-    Object placement, {
-    required Object adPosId,
+    FlutterPdfAdLoader loader,
+    AdPlacement placement, {
+    required AdPosId adPosId,
     required BuildContext? context,
     required OnUserEarnedRewardCallback? onUserEarnedReward,
   }) async {
-    if (_isFengKongBlocked('show', placement)) {
-      return false;
-    }
     _logGeneral('show-start placement=$placement');
 
     var cachedEntry = loader.cacheMap[placement];
@@ -1752,18 +1513,7 @@ class FlutterConfigPdfAdPlugins {
         );
         return false;
       }
-      if (_isFengKongBlocked('load-on-show', placement)) {
-        _logGeneral('show-failed placement=$placement reason=fengkong-blocked');
-        return false;
-      }
-      unawaited(
-        _loadPlacementWithAudience(
-          loader,
-          placement,
-          configs: null,
-          force: false,
-        ),
-      );
+      unawaited(_loadPlacementWithAudience(loader, placement, force: false));
       _logGeneral('show-failed placement=$placement reason=no-cached-ad');
       return false;
     }
@@ -1786,29 +1536,9 @@ class FlutterConfigPdfAdPlugins {
         );
         return false;
       }
-      if (_isFengKongBlocked(
-        'reload-expired',
-        placement,
-        info: cachedEntry.info,
-      )) {
-        _logGeneral('show-failed placement=$placement reason=fengkong-blocked');
-        _handleAdShowFailureForAd(
-          placement,
-          cachedEntry.info,
-          adPosId,
-          cachedEntry.ad,
-          'fengkong-blocked',
-        );
-        return false;
-      }
       unawaited(() async {
         await loader.clearPlacementCache(placement);
-        await _loadPlacementWithAudience(
-          loader,
-          placement,
-          configs: null,
-          force: true,
-        );
+        await _loadPlacementWithAudience(loader, placement, force: true);
       }());
       _log('show-expired', placement, cachedEntry.info);
       _logGeneral('show-failed placement=$placement reason=cache-expired');
@@ -1823,7 +1553,7 @@ class FlutterConfigPdfAdPlugins {
     }
 
     final adType = cachedEntry.info.parsedAdType;
-    if (adType == AdType.native) {
+    if (adType == AdType.native || adType == AdType.nativeFullscreen) {
       if (!_showingPlacements.add(placement)) {
         _log(
           'show-failed',
@@ -1840,9 +1570,9 @@ class FlutterConfigPdfAdPlugins {
         );
         return false;
       }
-      final shouldTrackShowing = _interstitialLikeNativePlacements.contains(
-        placement,
-      );
+      final shouldTrackShowing =
+          cachedEntry.info.adType == AdType.nativeFullscreen ||
+          _interstitialLikeNativePlacements.contains(placement);
       if (shouldTrackShowing) {
         _showingAdPlacements.add(placement);
       }
@@ -1975,9 +1705,9 @@ class FlutterConfigPdfAdPlugins {
   }
 
   Future<void> _handleAdPaidEvent(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
-    Object adPosId,
+    AdPosId adPosId,
     Ad ad,
     double valueMicros,
     PrecisionType precision,
@@ -1985,7 +1715,7 @@ class FlutterConfigPdfAdPlugins {
   ) async {
     final effectiveValueMicros = _resolvePaidValueMicros(valueMicros);
     final revenue = effectiveValueMicros / 1000000;
-    final adNetwork = _resolveAdNetwork(ad);
+    final adSourceName = _resolveAdNetwork(ad);
     final precisionType = precision.name;
     _log(
       'paid-event',
@@ -1994,7 +1724,7 @@ class FlutterConfigPdfAdPlugins {
       extra:
           'valueMicros=$effectiveValueMicros originalValueMicros=$valueMicros revenue=$revenue '
           'precision=$precision precisionType=$precisionType currencyCode=$currencyCode '
-          'adNetwork=$adNetwork '
+          'adNetwork=${info.adSource} adSourceName=$adSourceName '
           'adClass=${ad.runtimeType}',
     );
 
@@ -2016,7 +1746,7 @@ class FlutterConfigPdfAdPlugins {
       adPosId,
       revenue,
       currencyCode,
-      adNetwork,
+      info.adSource,
       precisionType,
       info,
     );
@@ -2081,8 +1811,8 @@ class FlutterConfigPdfAdPlugins {
 
   Future<_ShowResult> _showNativeAd(
     BuildContext context,
-    FlutterPdfAdLoader<Object> loader,
-    Object placement,
+    FlutterPdfAdLoader loader,
+    AdPlacement placement,
     LoadedAdCacheEntry entry, {
     required VoidCallback onShown,
   }) async {
@@ -2091,10 +1821,15 @@ class FlutterConfigPdfAdPlugins {
       _log('show-native-invalid-ad', placement, entry.info);
       return const _ShowResult.failure('invalid-native-ad');
     }
+    final adPosId = entry.adPosId;
+    if (adPosId == null) {
+      _log('show-native-missing-ad-pos-id', placement, entry.info);
+      return const _ShowResult.failure('missing-ad-pos-id');
+    }
 
-    final interstitialLike = _interstitialLikeNativePlacements.contains(
-      placement,
-    );
+    final interstitialLike =
+        entry.info.adType == AdType.nativeFullscreen ||
+        _interstitialLikeNativePlacements.contains(placement);
     final navigator =
         Navigator.maybeOf(context, rootNavigator: true) ??
         Navigator.maybeOf(context);
@@ -2104,12 +1839,7 @@ class FlutterConfigPdfAdPlugins {
     }
 
     if (interstitialLike) {
-      _handleAdShowStartForAd(
-        placement,
-        entry.info,
-        entry.adPosId ?? placement,
-        entry.ad,
-      );
+      _handleAdShowStartForAd(placement, entry.info, adPosId, entry.ad);
       final route = MaterialPageRoute<void>(
         builder: (_) => _NativeInterstitialPage(ad: ad),
         fullscreenDialog: true,
@@ -2128,23 +1858,13 @@ class FlutterConfigPdfAdPlugins {
       }
       final closedProgrammatically = routeHandle.closedProgrammatically;
       await loader.consumeShownEntryAfterClose(placement, entry);
-      _handleAdClosedForAd(
-        placement,
-        entry.info,
-        entry.adPosId ?? placement,
-        entry.ad,
-      );
+      _handleAdClosedForAd(placement, entry.info, adPosId, entry.ad);
       _log('native-closed-consume', placement, entry.info);
       return closedProgrammatically
           ? const _ShowResult.programmaticClose()
           : const _ShowResult.success();
     } else {
-      _handleAdShowStartForAd(
-        placement,
-        entry.info,
-        entry.adPosId ?? placement,
-        entry.ad,
-      );
+      _handleAdShowStartForAd(placement, entry.info, adPosId, entry.ad);
       final dialogFuture = showDialog<void>(
         context: navigator.context,
         useRootNavigator: true,
@@ -2155,17 +1875,17 @@ class FlutterConfigPdfAdPlugins {
     }
 
     await loader.consumeShownEntryAfterClose(placement, entry);
-    _handleAdClosedForAd(
-      placement,
-      entry.info,
-      entry.adPosId ?? placement,
-      entry.ad,
-    );
+    _handleAdClosedForAd(placement, entry.info, adPosId, entry.ad);
     _log('native-closed-consume', placement, entry.info);
     return const _ShowResult.success();
   }
 
-  void _log(String stage, Object placement, AdInfoBean? info, {String? extra}) {
+  void _log(
+    String stage,
+    AdPlacement placement,
+    AdInfoBean? info, {
+    String? extra,
+  }) {
     if (kReleaseMode) {
       return;
     }
@@ -2259,14 +1979,6 @@ class FlutterConfigPdfAdPlugins {
         ..write(extra);
     }
     debugPrint(buffer.toString());
-  }
-
-  /// 执行风控拦截判断。
-  bool checkFengKong() {
-    if (null == _fengKongLogic) {
-      return false;
-    }
-    return _fengKongLogic!();
   }
 }
 
@@ -2408,7 +2120,12 @@ class _ConsumableCachedAdWidgetState extends State<_ConsumableCachedAdWidget> {
 }
 
 typedef _TrackedAdShowStartCallback =
-    void Function(Object placement, AdInfoBean info, Object adPosId, Ad? ad);
+    void Function(
+      AdPlacement placement,
+      AdInfoBean info,
+      AdPosId adPosId,
+      Ad? ad,
+    );
 
 class _TrackedCachedAdWidget extends StatefulWidget {
   const _TrackedCachedAdWidget({
@@ -2418,9 +2135,9 @@ class _TrackedCachedAdWidget extends StatefulWidget {
     required this.onShowStart,
   });
 
-  final Object placement;
+  final AdPlacement placement;
   final LoadedAdCacheEntry entry;
-  final Object adPosId;
+  final AdPosId adPosId;
   final _TrackedAdShowStartCallback onShowStart;
 
   @override

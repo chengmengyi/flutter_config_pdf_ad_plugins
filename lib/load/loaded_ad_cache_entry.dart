@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../bean/ad_info_bean.dart';
+import '../enum/ad_pos_id.dart';
 
 class LoadedAdCacheEntry {
   LoadedAdCacheEntry({
@@ -14,7 +15,7 @@ class LoadedAdCacheEntry {
 
   final AdInfoBean info;
   final Ad ad;
-  Object? adPosId;
+  AdPosId? adPosId;
   final DateTime cachedAt;
   final int requestOrder;
   final CachedAdWidgetLease _widgetLease = CachedAdWidgetLease();
@@ -37,15 +38,12 @@ class LoadedAdCacheEntry {
     await _disposeIfRequested();
   }
 
-  void bindAdPosId(Object value) {
+  void bindAdPosId(AdPosId value) {
     adPosId = value;
   }
 
   DateTime? get expireAt {
     final exportTime = info.effectiveExportTime;
-    if (exportTime == null || exportTime <= 0) {
-      return null;
-    }
     return cachedAt.add(Duration(seconds: exportTime));
   }
 

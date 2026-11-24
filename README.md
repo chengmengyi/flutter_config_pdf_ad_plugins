@@ -1,19 +1,8 @@
 # flutter_config_pdf_ad_plugins
 
-`flutter_config_pdf_ad_plugins` 是一个基于 `google_mobile_ads` 的广告封装插件，提供了以下能力：
-
-- 插件配置初始化与 AdMob SDK 初始化
-- 广告位配置管理
-- 广告预加载与缓存
-- Banner / Native / Interstitial / Rewarded / AppOpen 展示
-- 收益回调与收益阈值事件
-- Facebook 用户分流
-- 风控
-- UMP 隐私授权流程
+基于 `google_mobile_ads` 的广告封装插件。广告位和打点位置由插件内置枚举约束，广告配置通过远程接口获取。
 
 ## 安装
-
-在业务工程的 `pubspec.yaml` 中添加依赖：
 
 ```yaml
 dependencies:
@@ -22,509 +11,192 @@ dependencies:
       url: https://github.com/chengmengyi/flutter_config_pdf_ad_plugins
 ```
 
-然后执行：
+宿主工程仍需在 Android `AndroidManifest.xml` 和 iOS `Info.plist` 中配置 AdMob App ID。
 
-```bash
-flutter pub get
-```
+## 内置枚举
 
-## 宿主工程准备
-
-### 1. Android 配置 AdMob App ID
-
-在业务工程的 `android/app/src/main/AndroidManifest.xml` 里添加：
-
-```xml
-<application>
-    <meta-data
-        android:name="com.google.android.gms.ads.APPLICATION_ID"
-        android:value="ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx" />
-</application>
-```
-
-### 2. iOS 配置 AdMob App ID
-
-在业务工程的 `ios/Runner/Info.plist` 里添加：
-
-```xml
-<key>GADApplicationIdentifier</key>
-<string>ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx</string>
-```
-
-### 3. Adjust / install referrer 可选
-
-插件不会初始化 Adjust SDK。如果业务工程已经在其他模块接入 Adjust，可以在归因回调里把归因来源传给插件：
+广告位使用 `AdPlacement`：
 
 ```dart
-FlutterConfigPdfAdPlugins.instance.updateAdjustAttribution(
-  network: attribution.network,
-);
+AdPlacement.pr_new_launch
+AdPlacement.pr_launch
+AdPlacement.pr_ban1
+AdPlacement.pr_user_use
+AdPlacement.pr_exit
+AdPlacement.pr_ban2
+AdPlacement.pr_ban3
+AdPlacement.pr_new_int
 ```
 
-插件会把传入的 `network` 保存到本地，下次启动即使外部 Adjust 回调没有再次触发，也会继续使用上次保存的归因来源判断 Facebook 用户分流。
-
-如果业务工程自己获取了 install referrer，也可以传给插件：
+广告展示位置使用 `AdPosId`，例如：
 
 ```dart
-FlutterConfigPdfAdPlugins.instance.updateInstallReferrer(
-  referrer: installReferrer,
-);
+AdPosId.pr_new_open
+AdPosId.pr_open_cold
+AdPosId.pr_main_banner1
+AdPosId.pr_guide_full
 ```
 
-插件会把传入的 `referrer` 保存到本地，并和 Adjust attribution network 一起用于 Facebook 用户分流。
+插件 API 不再接收业务自定义广告位泛型或 `Object adPosId`。
 
-## 快速开始
+## 初始化远程配置
 
-### 1. 导入
+`initPlugins` 使用 Dio POST 请求远程配置。请求失败、HTTP 非 2xx、业务码非 200、映射失败或配置校验失败都会重试；首次请求加三次重试，最多四次，相邻请求间隔两秒。
 
-```dart
-import 'package:flutter/material.dart';
-import 'package:flutter_config_pdf_ad_plugins/flutter_config_pdf_ad_plugins.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
-```
-
-### 2. 定义广告位
-
-建议业务侧自己定义广告位枚举：
+远程请求全部失败后，插件优先使用本地最后一次成功配置；本地不存在或无效时使用 `defaultAd`。`defaultAd` 只包含广告配置主体，不包含 `code/msg/data`：
 
 ```dart
-enum AdPlacement {
-  splash,
-  homeBanner,
-  homeNative,
-  chapterEndInterstitial,
-  reward,
+const defaultAd = '''
+{
+  "daily_limits": {
+    "impressions": 20,
+    "clicks": 5,
+    "accidental_click_probability_percent": 0.25
+  },
+  "ad_scenes": [
+    {
+      "scene_id": "pr_new_launch",
+      "blocked": false,
+      "placements": [
+        {
+          "sort": 0,
+          "ad_source": "admob",
+          "ad_type": "app_open",
+          "ad_id": "ca-app-pub-xxx/launch",
+          "interval_secs": 3
+        }
+      ]
+    }
+  ]
 }
+''';
 ```
 
-### 3. 绑定监听并初始化
-
-建议先设置监听器，再初始化插件配置和 AdMob SDK：
+初始化示例：
 
 ```dart
-Future<void> initAds() async {
-  final ad = FlutterConfigPdfAdPlugins.instance;
-
-  ad.setListener(AppAdListener());
-
-  await ad.initAdmob(
-    distinctId: 'user_10001',
-    fengKongLogic: () {
-      // 返回 true 表示命中风控，不允许请求或展示广告
-      return false;
+final initialized = await FlutterConfigPdfAdPlugins.instance.initPlugins(
+  remoteRequest: const AdRemoteRequest(
+    url: 'https://example.com/ad-config',
+    headers: <String, dynamic>{'Authorization': 'token'},
+    body: <String, dynamic>{'language': 'en'},
+    mapping: <String, String>{
+      'code': 'decal',
+      'msg': 'earpiece',
+      'data': 'concur',
+      'data.ads': 'concur.shore',
+      'data.ads.daily_limits': 'concur.shore.suburb',
+      'data.ads.daily_limits.impressions':
+          'concur.shore.suburb.eldercare',
+      'data.ads.daily_limits.clicks': 'concur.shore.suburb.sank',
+      'data.ads.daily_limits.accidental_click_probability_percent':
+          'concur.shore.suburb.ipod',
+      'data.ads.ad_scenes': 'concur.shore.unread',
+      'data.ads.ad_scenes.*.scene_id':
+          'concur.shore.unread.*.revival',
+      'data.ads.ad_scenes.*.blocked':
+          'concur.shore.unread.*.pumice',
+      'data.ads.ad_scenes.*.placements':
+          'concur.shore.unread.*.detective',
+      'data.ads.ad_scenes.*.placements.*.sort':
+          'concur.shore.unread.*.detective.*.atonable',
+      'data.ads.ad_scenes.*.placements.*.ad_source':
+          'concur.shore.unread.*.detective.*.angles',
+      'data.ads.ad_scenes.*.placements.*.ad_type':
+          'concur.shore.unread.*.detective.*.septum',
+      'data.ads.ad_scenes.*.placements.*.ad_id':
+          'concur.shore.unread.*.detective.*.provoking',
+      'data.ads.ad_scenes.*.placements.*.interval_secs':
+          'concur.shore.unread.*.detective.*.silliness',
     },
-  );
+  ),
+  defaultAd: defaultAd,
+  nativeAdHeadlineCallback: ({
+    required headline,
+    required isNextGenAdmob,
+  }) {
+    debugPrint('headline=$headline nextGen=$isNextGenAdmob');
+  },
+);
 
-  // 如果不想阻塞启动流程，可以用 unawaited(ad.initializeAdmob())。
-  await ad.initializeAdmob();
+if (initialized) {
+  await FlutterConfigPdfAdPlugins.instance.initializeAdmob();
 }
 ```
 
-`initAdmob` 只初始化插件本地配置、风控、用户分组和归因恢复；`initializeAdmob` 用于初始化 Google Mobile Ads SDK。`setListener` 不会回放 AdMob 初始化完成事件，因此如果业务依赖 `onAdmobInitialized`，请先 `setListener` 再调用 `initializeAdmob`。
+远程成功配置只在完整解密和校验通过后保存。本地保存的内容为 `daily_limits/ad_scenes` 广告配置主体，不包含 `code/msg/data`。
 
-### 4. 可选：处理 UMP 隐私授权
+Debug 构建会打印原始请求 URL、请求头、请求 Body、原始响应和解密结果；Release 构建不打印。解密结果保持加密响应的字段顺序和数组顺序。
 
-如果你的投放地区需要 GDPR / CMP，可以在初始化后调用：
+支持的后台 `ad_type`：`interstitial`、`rewarded`、`app_open`、`banner`、`native`、`native_fullscreen`。
+
+`daily_limits` 以及其中的 `impressions`、`clicks` 都允许为 `null`，表示不限制。展示和点击次数按设备、按天、所有广告类型合计；达到任一上限后只阻止新的广告请求，已经缓存的广告仍然可以展示。`accidental_click_probability_percent` 当前只保存，暂不参与逻辑。
+
+`ad_scenes` 为 `null` 或空数组时表示没有广告，不会回退到默认配置。场景 `blocked=true` 时不发起该场景的新请求，但保留配置和已有缓存。
+
+同一场景内的广告按 `sort` 从小到大稳定排序，相同 `sort` 保持后台数组顺序。先请求第一项；超过该项的 `interval_secs` 仍未返回时再请求下一项。如果当前项提前失败则立即请求下一项。首个成功结果会结束本次等待并阻止尚未发起的请求，已经发起的请求仍继续执行，后续成功结果也会写入缓存。`interval_secs` 至少为 1 秒。
+
+广告缓存有效期固定为：`app_open` 13800 秒，其他类型 3000 秒。
+
+## 加载与展示
 
 ```dart
-Future<void> initUmp() async {
-  final result = await FlutterConfigPdfAdPlugins.instance.handleUmpConsent();
-  debugPrint('canRequestAds: ${result.canRequestAds}');
-}
+await FlutterConfigPdfAdPlugins.instance.preloadAll(
+  placements: <AdPlacement>[
+    AdPlacement.pr_new_launch,
+    AdPlacement.pr_ban1,
+  ],
+);
+
+await FlutterConfigPdfAdPlugins.instance.loadPlacement(
+  AdPlacement.pr_new_launch,
+);
+
+final shown = await FlutterConfigPdfAdPlugins.instance.loadAndShow(
+  AdPlacement.pr_new_int,
+  adPosId: AdPosId.pr_up_int,
+  context: context,
+);
 ```
 
-也可以先判断当前地区是否需要：
+缓存广告接口同样要求 `AdPosId`：
 
 ```dart
-final needCmp = FlutterConfigPdfAdPlugins.instance.shouldUseCmpForCurrentLocale();
+final widget = await FlutterConfigPdfAdPlugins.instance.buildCachedAdWidget(
+  AdPlacement.pr_ban1,
+  adPosId: AdPosId.pr_main_banner1,
+);
+
+final shown = await FlutterConfigPdfAdPlugins.instance.showCachedAd(
+  AdPlacement.pr_new_launch,
+  adPosId: AdPosId.pr_open_cold,
+  context: context,
+);
 ```
 
-UMP 流程会通过 listener 暴露业务打点位置：
+## 事件监听
 
 ```dart
 class AppAdListener extends FlutterPdfAdListener {
   @override
-  void onUmpFormRequest() {
-    // 对应 ump_form_request
-  }
-
-  @override
-  void onUmpFormLoad() {
-    // 对应 ump_form_load
-  }
-
-  @override
-  void onUmpConsentCanRequestAds(bool canRequestAds) {
-    debugPrint('canRequestAds=$canRequestAds');
-  }
-
-  @override
-  void onUmpConsentFlowComplete(UmpConsentResult result) {
-    debugPrint('consentStatus=${result.consentStatus}');
-  }
-}
-```
-
-`onUmpConsentFlowStart` 表示进入插件 UMP 流程；`onUmpConsentFormShow` 表示准备调用 UMP 表单加载/展示逻辑，不保证一定有可见弹窗。
-
-## 广告位配置
-
-### 1. 配置广告数据结构
-
-插件使用 `AdInfoBean` 描述每一个广告配置：
-
-```dart
-final Map<AdPlacement, List<AdInfoBean>> configs = {
-  AdPlacement.homeBanner: [
-    AdInfoBean(
-      adId: 'ca-app-pub-xxx/banner1',
-      adType: AdType.banner.rawValue,
-      sort: 100,
-      exportTime: 3600,
-      userGroup: [1, 2],
-    ),
-  ],
-  AdPlacement.homeNative: [
-    AdInfoBean(
-      adId: 'ca-app-pub-xxx/native1',
-      adType: AdType.native.rawValue,
-      sort: 100,
-      exportTime: 1800,
-    ),
-  ],
-  AdPlacement.chapterEndInterstitial: [
-    AdInfoBean(
-      adId: 'ca-app-pub-xxx/interstitial1',
-      adType: AdType.interstitial.rawValue,
-      sort: 100,
-      exportTime: 1800,
-    ),
-  ],
-  AdPlacement.reward: [
-    AdInfoBean(
-      adId: 'ca-app-pub-xxx/reward1',
-      adType: AdType.rewarded.rawValue,
-      sort: 100,
-      exportTime: 1800,
-    ),
-  ],
-};
-```
-
-### 2. 下发配置到插件
-
-```dart
-void configAds() {
-  final ad = FlutterConfigPdfAdPlugins.instance;
-
-  ad.updateConfigs<AdPlacement>(
-    configs,
-    placementLabelBuilder: (placement) => placement.name,
-  );
-}
-```
-
-### 3. 可选配置项
-
-```dart
-void configAdvancedOptions() {
-  final ad = FlutterConfigPdfAdPlugins.instance;
-
-  // 开屏广告每天最多展示 20 次、点击 5 次；达到任一上限后不再加载
-  // 新的开屏广告。已经加载成功的缓存广告仍然可以继续展示。
-  ad.setMaxShowAndClickNum(
-    maxShowNum: 20,
-    maxClickNum: 5,
-  );
-
-  // Native 按插屏样式展示
-  ad.updateInterstitialLikeNativePlacements([
-    AdPlacement.homeNative,
-  ]);
-
-  // 某些 Native 使用小模板
-  ad.updateSmallTemplateNativePlacements([
-    AdPlacement.homeNative,
-  ]);
-
-  // 某些 Banner 使用大尺寸
-  ad.updateLargeBannerPlacements([
-    AdPlacement.homeBanner,
-  ]);
-
-  // 可折叠 Banner，方向一般传 top 或 bottom
-  ad.updateCollapsibleBannerPlacements({
-    AdPlacement.homeBanner: 'bottom',
-  });
-
-  // 关闭后不自动补加载
-  ad.updateSkipReloadAfterClosePlacements([
-    AdPlacement.reward,
-  ]);
-
-  // 多层级广告请求超时；不配置时只在 SDK 返回失败后请求下一层
-  ad.updateAdRequestTimeoutSeconds(3);
-}
-```
-
-## 广告加载与展示
-
-### 1. 预加载广告
-
-```dart
-Future<void> preloadAds() async {
-  await FlutterConfigPdfAdPlugins.instance.preloadAll<AdPlacement>(
-    placements: [
-      AdPlacement.homeBanner,
-      AdPlacement.homeNative,
-      AdPlacement.chapterEndInterstitial,
-    ],
-  );
-}
-```
-
-也可以加载单个广告位：
-
-```dart
-await FlutterConfigPdfAdPlugins.instance.loadPlacement(AdPlacement.reward);
-```
-
-### 2. Banner / Native 直接构建缓存组件
-
-适合已经预加载完成的场景：
-
-```dart
-class HomeBannerView extends StatelessWidget {
-  const HomeBannerView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Widget?>(
-      future: FlutterConfigPdfAdPlugins.instance.buildCachedAdWidget(
-        AdPlacement.homeBanner,
-      ),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox.shrink();
-        }
-        return snapshot.data!;
-      },
-    );
-  }
-}
-```
-
-### 3. 取出一个可消费的 Widget
-
-这个接口会把缓存里的广告取出来，适合列表流里按需消费：
-
-```dart
-final widget = await FlutterConfigPdfAdPlugins.instance.takeCachedAdWidget(
-  AdPlacement.homeNative,
-  loadIfNeeded: true,
-  reloadAfterTake: true,
-);
-```
-
-### 4. 展示缓存广告
-
-适合插屏、激励、开屏，也支持原生广告弹窗展示：
-
-```dart
-final shown = await FlutterConfigPdfAdPlugins.instance.showCachedAd(
-  AdPlacement.chapterEndInterstitial,
-  context: context,
-);
-```
-
-激励广告可以监听奖励回调：
-
-```dart
-await FlutterConfigPdfAdPlugins.instance.showCachedAd(
-  AdPlacement.reward,
-  onUserEarnedReward: (ad, reward) {
-    debugPrint('reward: ${reward.amount} ${reward.type}');
-  },
-);
-```
-
-### 5. 加载后立即展示
-
-如果你不确定缓存里有没有广告，可以直接调用：
-
-```dart
-final shown = await FlutterConfigPdfAdPlugins.instance.loadAndShow(
-  AdPlacement.chapterEndInterstitial,
-  context: context,
-);
-```
-
-## 收益与事件回调
-
-推荐使用 `setListener` 统一监听：
-
-```dart
-class AdListener extends FlutterPdfAdListener {
-  @override
-  void onAdRequestSuccess(
-    Object placement,
-    AdInfoBean info,
-    String adNetwork,
-    String adSourceName,
-  ) {
-    debugPrint('load success placement=$placement source=$adSourceName');
-  }
-
-  @override
   void onAdShowSuccess(
-    Object placement,
+    AdPlacement placement,
     AdInfoBean info,
+    AdPosId adPosId,
     String adNetwork,
     String adSourceName,
   ) {
-    debugPrint('show success placement=$placement source=$adSourceName');
-  }
-
-  @override
-  void onAdShowFailure(
-    Object placement,
-    AdInfoBean info,
-    String adNetwork,
-    String adSourceName,
-    String errorMessage,
-  ) {
-    debugPrint('show failed placement=$placement error=$errorMessage');
-  }
-
-  @override
-  void onAdPaidEvent(
-    Object placement,
-    double revenue,
-    String currencyCode,
-    String adNetwork,
-    String precisionType,
-    AdInfoBean info,
-  ) {
-    debugPrint(
-      'placement=$placement revenue=$revenue currency=$currencyCode network=$adNetwork',
-    );
-  }
-
-  @override
-  void onTachi25OneDayRevenueEvent(String eventName) {
-    debugPrint('one day revenue event: $eventName');
-  }
-
-  @override
-  void onTachi25TotalRevenueEvent(String eventName) {
-    debugPrint('total revenue event: $eventName');
+    debugPrint('placement=${placement.name} adPosId=${adPosId.name}');
   }
 }
-
-void bindAdListener() {
-  FlutterConfigPdfAdPlugins.instance.setListener(AdListener());
-}
 ```
 
-`adNetwork` 为插件兼容字段；`adSourceName` 来自 AdMob SDK 的 `responseInfo.loadedAdapterResponseInfo.adSourceName`，更适合表示本次广告实际填充来源。请求发起回调 `onAdRequestStart` 发生在 SDK 返回 response 前，因此没有 `adSourceName`。
+回调中的 `adNetwork` 是后台 `ad_source` 原值，`adSourceName` 是 SDK 实际返回的广告源名称。
 
-### 收益阈值事件配置
-
-```dart
-FlutterConfigPdfAdPlugins.instance.updateTachi25RevenueConfig({
-  'reader_oneday_top10': 1.0,
-  'reader_oneday_top20': 0.8,
-  'reader_oneday_top30': 0.5,
-  'reader_oneday_top40': 0.3,
-  'reader_oneday_top50': 0.1,
-});
-```
-
-## Facebook 用户配置
-
-如果 Facebook 来源用户需要走另一套广告位配置，可以单独设置：
-
-```dart
-FlutterConfigPdfAdPlugins.instance.updateFacebookConfigs<AdPlacement>({
-  AdPlacement.homeBanner: [
-    AdInfoBean(
-      adId: 'ca-app-pub-xxx/facebook_banner',
-      adType: AdType.banner.rawValue,
-    ),
-  ],
-});
-```
-
-插件会结合外部传入的 install referrer 和 Adjust attribution network 判断是否为 Facebook 用户。
-
-## 风控
-
-### 检查当前是否正在展示广告
-
-```dart
-final showing = FlutterConfigPdfAdPlugins.instance.isShowingAd();
-```
-
-## 调试能力
-
-### 打开 Ad Inspector
-
-```dart
-final error = await FlutterConfigPdfAdPlugins.instance.openAdInspector();
-debugPrint('ad inspector error: $error');
-```
-
-### 设置调试收益区间
-
-在 Debug 环境下，当收益为 0 时可模拟收益值：
-
-```dart
-FlutterConfigPdfAdPlugins.instance.updateDebugPaidRevenueRange(
-  minRevenue: 0.008,
-  maxRevenue: 0.02,
-);
-```
-
-## 常用接口速查
-
-```dart
-final ad = FlutterConfigPdfAdPlugins.instance;
-
-await ad.initAdmob(
-  distinctId: 'user_10001',
-  fengKongLogic: () => false,
-);
-await ad.initializeAdmob();
-
-ad.updateConfigs<AdPlacement>(configs);
-await ad.preloadAll<AdPlacement>();
-
-final banner = await ad.buildCachedAdWidget(AdPlacement.homeBanner);
-final native = await ad.takeCachedAdWidget(AdPlacement.homeNative);
-final shown = await ad.loadAndShow(
-  AdPlacement.chapterEndInterstitial,
-  context: context,
-);
-```
+Adjust、install referrer、UMP、收益统计和展示样式配置接口暂时保持原有行为。
 
 ## 销毁
-
-页面或业务模块结束时，如果需要释放缓存，可以调用：
 
 ```dart
 await FlutterConfigPdfAdPlugins.instance.disposeLoader();
 ```
-
-## 注意事项
-
-- `showCachedAd` 和 `loadAndShow` 在展示 Native 弹窗时需要传 `context`
-- 如果业务依赖 `onAdmobInitialized`，请先 `setListener`，再调用 `initializeAdmob`
-- `MobileAds.initialize` 可能较慢；不想阻塞启动时可以自行 `unawaited(FlutterConfigPdfAdPlugins.instance.initializeAdmob())`
-- `updateAdRequestTimeoutSeconds` 不配置或传入 `0` 时，只在 SDK 请求失败后请求下一层；传入正数时，当前层超时会请求下一层
-- `closeFullScreenAd()` 会在 Android 尝试关闭 AdMob 和已知聚合 SDK 的全屏广告 Activity；可通过 `updateCloseableFullScreenAdActivityNames()` 追加可关闭 Activity 类名
-- 插件不再内置广告展示冷却判断，冷却逻辑请放在业务项目里处理
-- `takeCachedAdWidget` 适合列表流消费，取出后会从缓存中移除，并会跳过正在其他页面挂载的广告
-- `buildCachedAdWidget` 只是读取当前缓存，不会移除缓存；同一个缓存广告同一时间只能挂载到一个 Widget
-- `getAndroidId()` 只有 Android 有值，iOS 会返回 `null`
-- 如果广告位配置里设置了 `exportTime`，缓存到期后会自动失效
-- `userGroup` 为 `null` 或空数组 `[]` 时不会请求；配置为 `[0]` 时表示全部用户可用

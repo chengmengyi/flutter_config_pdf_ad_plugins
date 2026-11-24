@@ -2,11 +2,9 @@ package com.flutter.config.pdf.ad.flutter_config_pdf_ad_plugins
 
 import android.app.Activity
 import android.app.Application
-import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 import io.flutter.embedding.engine.plugins.FlutterPlugin.FlutterPluginBinding
 import io.flutter.plugins.googlemobileads.GoogleMobileAdsPlugin
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -27,7 +25,6 @@ class FlutterConfigPdfAdPluginsPlugin :
     private lateinit var nativeAdHeadlineEventChannel: EventChannel
     private var nativeAdHeadlineEventSink: EventChannel.EventSink? = null
     private val pendingNativeAdHeadlineEvents = ArrayDeque<Map<String, Any?>>()
-    private var applicationContext: Context? = null
     private var flutterPluginBinding: FlutterPluginBinding? = null
     private var guideCompactNativeFactory: GuideCompactNativeAdFactory? = null
     private var smallNativeAdLayoutName: String? = null
@@ -94,7 +91,6 @@ class FlutterConfigPdfAdPluginsPlugin :
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         this.flutterPluginBinding = flutterPluginBinding
-        applicationContext = flutterPluginBinding.applicationContext
         application = flutterPluginBinding.applicationContext as? Application
         application?.registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "flutter_config_pdf_ad_plugins")
@@ -113,18 +109,6 @@ class FlutterConfigPdfAdPluginsPlugin :
         when (call.method) {
             "getPlatformVersion" -> {
                 result.success("Android ${android.os.Build.VERSION.RELEASE}")
-            }
-            "getAndroidId" -> {
-                val context = applicationContext
-                if (context == null) {
-                    result.success(null)
-                    return
-                }
-                val androidId = Settings.Secure.getString(
-                    context.contentResolver,
-                    Settings.Secure.ANDROID_ID
-                )
-                result.success(androidId)
             }
             "configureSmallNativeAdLayout" -> {
                 val layoutName = call.argument<String>("layoutName")?.trim()
@@ -159,7 +143,6 @@ class FlutterConfigPdfAdPluginsPlugin :
         nativeAdHeadlineEventSink = null
         pendingNativeAdHeadlineEvents.clear()
         flutterPluginBinding = null
-        applicationContext = null
     }
 
     private fun registerNativeAdFactories(binding: FlutterPluginBinding) {
