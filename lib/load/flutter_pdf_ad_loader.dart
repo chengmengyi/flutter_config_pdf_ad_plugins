@@ -744,6 +744,50 @@ class FlutterPdfAdLoader {
       return;
     }
 
+    final entries = _cacheMap[placement];
+    if (entries != null && entries.isNotEmpty) {
+      final expiredReplacements = entries
+          .where((entry) => !identical(entry, shownEntry) && entry.isExpired)
+          .toList(growable: false);
+      for (final expiredEntry in expiredReplacements) {
+        entries.remove(expiredEntry);
+        await expiredEntry.dispose();
+      }
+    }
+
+    final currentEntries = _cacheMap[placement];
+    final replacementCacheCount =
+        currentEntries
+            ?.where(
+              (entry) => !identical(entry, shownEntry) && !entry.isExpired,
+            )
+            .length ??
+        0;
+    if (replacementCacheCount > 0) {
+      _log(
+        'skip-preload-after-show',
+        placement,
+        info: shownEntry.info,
+        extra:
+            'reason=replacement-cache-exists '
+            'remainingCount=$replacementCacheCount',
+      );
+      return;
+    }
+
+    final activeRequestCount = _activeRequestCounts[placement] ?? 0;
+    if (activeRequestCount > 0 || _loadingTasks.containsKey(placement)) {
+      _log(
+        'skip-preload-after-show',
+        placement,
+        info: shownEntry.info,
+        extra:
+            'reason=request-in-progress '
+            'activeRequestCount=$activeRequestCount',
+      );
+      return;
+    }
+
     _logCacheReload(placement, trigger: 'showed-preload');
     await loadPlacement(placement, force: true);
   }

@@ -6,6 +6,117 @@ import 'package:flutter/material.dart';
 import 'package:flutter_config_pdf_ad_plugins/flutter_config_pdf_ad_plugins.dart';
 import 'package:flutter_tba_info_new/flutter_tba_info_new.dart';
 
+
+var defaultAd="""{
+    "ads": {
+      "ad_scenes": [
+        {
+          "blocked": false,
+          "scene_id": "pr_new_launch",
+          "placements": [
+            {
+              "sort": 3,
+              "ad_id": "ca-app-pub-3940256099942544/9257395921",
+              "ad_type": "app_open",
+              "ad_source": "admob",
+              "interval_secs": 3
+            }
+          ]
+        },
+        {
+          "blocked": false,
+          "scene_id": "pr_launch",
+          "placements": [
+            {
+              "sort": 1,
+              "ad_id": "ca-app-pub-3940256099942544/9257395921",
+              "ad_type": "app_open",
+              "ad_source": "admob",
+              "interval_secs": 1
+            },
+ {
+              "sort": 3,
+              "ad_id": "ca-app-pub-3940256099942544/9257395921",
+              "ad_type": "app_open",
+              "ad_source": "admob",
+              "interval_secs": 3
+            }
+          ]
+        },
+        {
+          "blocked": false,
+          "scene_id": "pr_ban1",
+          "placements": [
+            {
+              "sort": 3,
+              "ad_id": "ca-app-pub-3940256099942544/2247696110",
+              "ad_type": "native",
+              "ad_source": "admob",
+              "interval_secs": 3
+            }
+          ]
+        },
+        {
+          "blocked": false,
+          "scene_id": "pr_ban2",
+          "placements": [
+            {
+              "sort": 3,
+              "ad_id": "ca-app-pub-3940256099942544/2247696110",
+              "ad_type": "native",
+              "ad_source": "admob",
+              "interval_secs": 3
+            }
+          ]
+        },
+        {
+          "blocked": false,
+          "scene_id": "pr_user_use",
+          "placements": [
+            {
+              "sort": 2,
+              "ad_id": "ca-app-pub-3940256099942544/1033173712",
+              "ad_type": "interstitial",
+              "ad_source": "admob",
+              "interval_secs": 3
+            }
+          ]
+        },
+        {
+          "blocked": false,
+          "scene_id": "pr_new_int",
+          "placements": [
+            {
+              "sort": 2,
+              "ad_id": "ca-app-pub-3940256099942544/1033173712",
+              "ad_type": "interstitial",
+              "ad_source": "admob",
+              "interval_secs": 3
+            }
+          ]
+        },
+        {
+          "blocked": false,
+          "scene_id": "pr_exit",
+          "placements": [
+            {
+              "sort": 3,
+              "ad_id": "ca-app-pub-3940256099942544/1033173712",
+              "ad_type": "interstitial",
+              "ad_source": "admob",
+              "interval_secs": 3
+            }
+          ]
+        }
+      ],
+      "daily_limits": {
+        "clicks": 100,
+        "impressions": 100,
+        "accidental_click_probability_percent": 100
+      }
+    }
+  }""";
+
 const Map<String, String> mapping = <String, String>{
   "code": "decal",
   "msg": "earpiece",
@@ -59,6 +170,12 @@ class _MyAppState extends State<MyApp> {
                 },
                 child: Text("初始化"),
               ),
+              TextButton(
+                onPressed: () {
+                  _show();
+                },
+                child: Text("显示"),
+              ),
             ],
           ),
         ),
@@ -67,24 +184,32 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _init() async {
-    FlutterConfigPdfAdPlugins.instance.initPlugins(
+    var result = await FlutterConfigPdfAdPlugins.instance.initPlugins(
       remoteRequest: AdRemoteRequest(
         url: "https://client.docnovapdftoolreaderscanner.com/api/dwarf",
         headers: await _getHeaderMap(),
         body: await _getBodyMap(),
         mapping: mapping,
       ),
-      defaultAd: "",
+      defaultAd: defaultAd,
       nativeAdHeadlineCallback:
           ({required String? headline, required bool isNextGenAdmob}) {},
     );
+    print("kk=result===${result}");
+    if(result){
+      FlutterConfigPdfAdPlugins.instance.loadPlacement(AdPlacement.pr_launch);
+    }
+  }
+
+  Future<void> _show() async {
+    FlutterConfigPdfAdPlugins.instance.showCachedAd(AdPlacement.pr_launch, adPosId: AdPosId.pr_new_open);
   }
 
   Future<Map<String, dynamic>> _getHeaderMap() async => {
-    "x-yearling": kDebugMode
-        ? "com.docnova.pdftool.reader.scanner"
-        : await FlutterTbaInfoNew.instance.getBundleId(),
-    "x-humid": await FlutterTbaInfoNew.instance.getAppVersion(),
+    // "x-yearling": kDebugMode
+    //     ? "com.docnova.pdftool.reader.scanner"
+    //     : await FlutterTbaInfoNew.instance.getBundleId(),
+    // "x-humid": await FlutterTbaInfoNew.instance.getAppVersion(),
   };
 
   Future<Map<String, dynamic>> _getBodyMap() async {
